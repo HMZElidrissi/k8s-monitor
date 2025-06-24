@@ -9,11 +9,11 @@ dev: dev-frontend dev-backend
 # Development - start both frontend and backend
 dev-frontend:
 	@echo "Starting frontend development server..."
-	cd $(FRONTEND_DIR) && npm install && npm run dev &
+	cd $(FRONTEND_DIR) && npm run dev &
 
 dev-backend:
 	@echo "Starting backend development server..."
-	cd $(BACKEND_DIR) && go mod tidy && go run cmd/server/main.go
+	cd $(BACKEND_DIR) && air
 
 # Build - compile both parts
 build: build-frontend build-backend
@@ -37,11 +37,24 @@ test-frontend:
 	@echo "Running frontend tests..."
 	cd $(FRONTEND_DIR) && npm test -- --watchAll=false
 
-# Install dependencies
-install:
+# Install dependencies and tools
+install: 
 	@echo "Installing dependencies..."
-	cd $(BACKEND_DIR) && go mod tidy
+	$(MAKE) install-frontend
+	$(MAKE) install-backend
+	$(MAKE) install-air
+
+install-frontend:
+	@echo "Installing frontend dependencies..."
 	cd $(FRONTEND_DIR) && npm install
+
+install-backend:
+	@echo "Installing backend dependencies..."
+	cd $(BACKEND_DIR) && go mod tidy
+
+install-air:
+	@echo "Installing Air for hot reload..."
+	go install github.com/cosmtrek/air@latest
 
 # Clean build artifacts
 clean:
