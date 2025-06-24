@@ -1,11 +1,13 @@
 # Backend
 backend/bin/
 backend/tmp/
+backend/logs/
+backend/.env.*
 
 # Frontend
 frontend/node_modules/
 frontend/dist/
-frontend/.env.
+frontend/.env.*
 
 # Docker
 .env
@@ -13,6 +15,8 @@ frontend/.env.
 # IDE
 .vscode/
 .idea/
+.cursor/
+
 
 # OS
 .DS_Store

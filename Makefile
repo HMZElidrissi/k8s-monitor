@@ -9,7 +9,7 @@ dev: dev-frontend dev-backend
 # Development - start both frontend and backend
 dev-frontend:
 	@echo "Starting frontend development server..."
-	cd $(FRONTEND_DIR) && npm run dev &
+	cd $(FRONTEND_DIR) && pnpm dev &
 
 dev-backend:
 	@echo "Starting backend development server..."
@@ -20,7 +20,7 @@ build: build-frontend build-backend
 
 build-frontend:
 	@echo "Building frontend..."
-	cd $(FRONTEND_DIR) && npm install && npm run build
+	cd $(FRONTEND_DIR) && pnpm install && pnpm run build
 
 build-backend:
 	@echo "Building backend..."
@@ -35,7 +35,7 @@ test-backend:
 
 test-frontend:
 	@echo "Running frontend tests..."
-	cd $(FRONTEND_DIR) && npm test -- --watchAll=false
+	cd $(FRONTEND_DIR) && pnpm test -- --watchAll=false
 
 # Install dependencies and tools
 install: 
@@ -46,7 +46,7 @@ install:
 
 install-frontend:
 	@echo "Installing frontend dependencies..."
-	cd $(FRONTEND_DIR) && npm install
+	cd $(FRONTEND_DIR) && pnpm install
 
 install-backend:
 	@echo "Installing backend dependencies..."
@@ -54,7 +54,7 @@ install-backend:
 
 install-air:
 	@echo "Installing Air for hot reload..."
-	go install github.com/cosmtrek/air@latest
+	go install github.com/air-verse/air@latest
 
 # Clean build artifacts
 clean:
