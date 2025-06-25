@@ -54,25 +54,25 @@ export default function DashboardLayout({ children }: Props) {
 const topNav = [
   {
     title: 'Overview',
-    href: 'dashboard/overview',
+    href: '/',
     isActive: true,
     disabled: false,
   },
   {
     title: 'Applications',
-    href: 'dashboard/applications',
+    href: '/applications',
     isActive: false,
     disabled: false,
   },
   {
     title: 'Pods',
-    href: 'dashboard/pods',
+    href: '/pods',
     isActive: false,
     disabled: false,
   },
   {
     title: 'Alerts',
-    href: 'dashboard/alerts',
+    href: '/alerts',
     isActive: false,
     disabled: false,
   },

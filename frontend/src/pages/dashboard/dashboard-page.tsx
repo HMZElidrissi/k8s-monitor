@@ -9,19 +9,59 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Overview } from '@/components/dashboard/overview';
-import { RecentSales } from '@/components/dashboard/recent-events';
+import { RecentEvents } from '@/components/dashboard/recent-events';
+import { RealtimeDashboard } from '@/components/dashboard/realtime-dashboard';
+import { useApplications, usePods, useHealth } from '@/services/api';
+import { Badge } from '@/components/ui/badge';
+import { IconDownload, IconActivity } from '@tabler/icons-react';
 
 export default function DashboardPage() {
+  // Real-time data hooks
+  const { data: healthData } = useHealth();
+  const { data: applicationsData, isLoading: applicationsLoading } =
+    useApplications();
+  const { data: podsData, isLoading: podsLoading } = usePods('default');
+
+  const applications = applicationsData?.applications || [];
+  const pods = podsData?.pods || [];
+
+  // Calculate real-time metrics
+  const runningPods = pods.filter((pod) => pod.status === 'Running').length;
+  const healthyApps = applications.filter(
+    (app) => app.status === 'healthy'
+  ).length;
+  const healthPercentage =
+    applications.length > 0
+      ? Math.round((healthyApps / applications.length) * 100)
+      : 0;
+  const criticalAlerts = applications.filter(
+    (app) => app.status === 'unhealthy'
+  ).length;
+
   return (
     <Main>
       <div className='mb-2 flex items-center justify-between space-y-2'>
-        <h1 className='text-2xl font-bold tracking-tight'>
-          K8s Monitor Dashboard
-        </h1>
+        <div>
+          <h1 className='text-2xl font-bold tracking-tight'>
+            K8s Monitor Dashboard
+          </h1>
+          {healthData && (
+            <div className='flex items-center space-x-2 mt-2'>
+              <Badge variant='outline' className='bg-green-50 text-green-700'>
+                <IconActivity className='h-3 w-3 mr-1' />
+                {healthData.status} • v{healthData.version}
+              </Badge>
+            </div>
+          )}
+        </div>
         <div className='flex items-center space-x-2'>
-          <Button>Export Report</Button>
+          <Button variant='outline'>
+            <IconDownload className='h-4 w-4 mr-2' />
+            Export Report
+          </Button>
         </div>
       </div>
+
       <Tabs
         orientation='vertical'
         defaultValue='overview'
@@ -31,10 +71,11 @@ export default function DashboardPage() {
           <TabsList>
             <TabsTrigger value='overview'>Overview</TabsTrigger>
             <TabsTrigger value='applications'>Applications</TabsTrigger>
+            <TabsTrigger value='pods'>Pods</TabsTrigger>
             <TabsTrigger value='alerts'>Alerts</TabsTrigger>
-            <TabsTrigger value='events'>Events</TabsTrigger>
           </TabsList>
         </div>
+
         <TabsContent value='overview' className='space-y-4'>
           <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
             <Card>
@@ -59,9 +100,9 @@ export default function DashboardPage() {
                 </svg>
               </CardHeader>
               <CardContent>
-                <div className='text-2xl font-bold'>127</div>
+                <div className='text-2xl font-bold'>{runningPods}</div>
                 <p className='text-muted-foreground text-xs'>
-                  +3 since last hour
+                  {podsLoading ? 'Loading...' : `${pods.length} total pods`}
                 </p>
               </CardContent>
             </Card>
@@ -87,14 +128,18 @@ export default function DashboardPage() {
                 </svg>
               </CardHeader>
               <CardContent>
-                <div className='text-2xl font-bold'>23</div>
-                <p className='text-muted-foreground text-xs'>94% health rate</p>
+                <div className='text-2xl font-bold'>{healthyApps}</div>
+                <p className='text-muted-foreground text-xs'>
+                  {applicationsLoading
+                    ? 'Loading...'
+                    : `${healthPercentage}% health rate`}
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
                 <CardTitle className='text-sm font-medium'>
-                  Active Alerts
+                  Critical Alerts
                 </CardTitle>
                 <svg
                   xmlns='http://www.w3.org/2000/svg'
@@ -112,16 +157,20 @@ export default function DashboardPage() {
                 </svg>
               </CardHeader>
               <CardContent>
-                <div className='text-2xl font-bold'>2</div>
+                <div
+                  className={`text-2xl font-bold ${criticalAlerts > 0 ? 'text-red-600' : ''}`}
+                >
+                  {criticalAlerts}
+                </div>
                 <p className='text-muted-foreground text-xs'>
-                  -1 from last hour
+                  {criticalAlerts > 0 ? 'Requires attention' : 'All healthy'}
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
                 <CardTitle className='text-sm font-medium'>
-                  Cluster Health
+                  System Status
                 </CardTitle>
                 <svg
                   xmlns='http://www.w3.org/2000/svg'
@@ -137,9 +186,13 @@ export default function DashboardPage() {
                 </svg>
               </CardHeader>
               <CardContent>
-                <div className='text-2xl font-bold text-green-600'>Healthy</div>
+                <div className='text-2xl font-bold text-green-600'>
+                  {healthData?.status || 'Loading...'}
+                </div>
                 <p className='text-muted-foreground text-xs'>
-                  All nodes operational
+                  {healthData
+                    ? `Uptime: ${healthData.uptime}`
+                    : 'Checking status...'}
                 </p>
               </CardContent>
             </Card>
@@ -148,6 +201,9 @@ export default function DashboardPage() {
             <Card className='col-span-1 lg:col-span-4'>
               <CardHeader>
                 <CardTitle>Pod Status Overview</CardTitle>
+                <CardDescription>
+                  Real-time pod metrics and status distribution
+                </CardDescription>
               </CardHeader>
               <CardContent className='pl-2'>
                 <Overview />
@@ -155,59 +211,81 @@ export default function DashboardPage() {
             </Card>
             <Card className='col-span-1 lg:col-span-3'>
               <CardHeader>
-                <CardTitle>Recent Events</CardTitle>
+                <CardTitle>Recent Activity</CardTitle>
                 <CardDescription>
-                  Latest pod and deployment events.
+                  Latest pod events and status changes
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <RecentSales />
+                <RecentEvents />
               </CardContent>
             </Card>
           </div>
         </TabsContent>
+
         <TabsContent value='applications' className='space-y-4'>
+          <RealtimeDashboard namespace='default' />
+        </TabsContent>
+
+        <TabsContent value='pods' className='space-y-4'>
           <Card>
             <CardHeader>
-              <CardTitle>Applications</CardTitle>
+              <CardTitle>Pod Management</CardTitle>
               <CardDescription>
-                Monitor your deployed applications across namespaces.
+                Monitor and manage individual pods with real-time updates
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className='text-muted-foreground'>
-                Application monitoring view coming soon...
-              </p>
+              <RealtimeDashboard namespace='default' />
             </CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value='alerts' className='space-y-4'>
           <Card>
             <CardHeader>
               <CardTitle>Active Alerts</CardTitle>
               <CardDescription>
-                Current alerts requiring attention.
+                Current alerts and issues requiring attention
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className='text-muted-foreground'>
-                Alert management view coming soon...
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value='events' className='space-y-4'>
-          <Card>
-            <CardHeader>
-              <CardTitle>Cluster Events</CardTitle>
-              <CardDescription>
-                Real-time Kubernetes events and activities.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className='text-muted-foreground'>
-                Events timeline view coming soon...
-              </p>
+              {criticalAlerts > 0 ? (
+                <div className='space-y-4'>
+                  {applications
+                    .filter((app) => app.status === 'unhealthy')
+                    .map((app) => (
+                      <div
+                        key={`${app.namespace}-${app.name}`}
+                        className='border border-red-200 rounded-lg p-4 bg-red-50'
+                      >
+                        <div className='flex items-center justify-between'>
+                          <div>
+                            <h3 className='font-medium text-red-900'>
+                              {app.name}
+                            </h3>
+                            <p className='text-sm text-red-700'>
+                              {app.namespace} namespace
+                            </p>
+                          </div>
+                          <Badge variant='destructive'>Unhealthy</Badge>
+                        </div>
+                        <p className='text-sm text-red-700 mt-2'>
+                          {app.available_replicas}/{app.expected_replicas}{' '}
+                          replicas available
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className='text-center py-8'>
+                  <div className='text-green-600 text-6xl mb-4'>✓</div>
+                  <p className='text-lg font-medium'>All systems operational</p>
+                  <p className='text-muted-foreground'>
+                    No active alerts at this time
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
