@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/services/api';
 import type { WebSocketMessage, PodStatus } from '@/types';
+import { apiClient } from '@/services/api';
 
 interface UseWebSocketOptions {
   namespace?: string;
