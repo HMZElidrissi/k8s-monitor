@@ -149,6 +149,8 @@ func setupRoutes(
 		// Application endpoints
 		v1.GET("/applications", appHandler.List)
 		v1.GET("/applications/:namespace", appHandler.ListByNamespace)
+		v1.GET("/applications/:namespace/:name", appHandler.GetApplication)
+		v1.GET("/applications/:namespace/:name/status", appHandler.GetApplicationStatus)
 
 		// Namespace endpoints
 		v1.GET("/namespaces", podHandler.ListNamespaces)
