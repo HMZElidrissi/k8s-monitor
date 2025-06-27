@@ -1,180 +1,241 @@
-/*
- * File: internal/models/pod.go
- * Application: K8s Monitor - Kubernetes Application Health Monitoring Tool
- * Author: Hamza El IDRISSI
- * Date: June 24, 2025
- * Version: v1.0.0 - Phase 1 Backend Implementation
- * Description: Pod status models and data structures
- */
-
 package models
 
 import (
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 )
 
-// PodStatus represents the status of a pod in a developer-friendly format
+// PodStatus represents the status information of a Kubernetes pod
 type PodStatus struct {
 	Name        string            `json:"name"`
 	Namespace   string            `json:"namespace"`
 	Status      string            `json:"status"`
-	Phase       string            `json:"phase"`
 	Ready       bool              `json:"ready"`
 	Restarts    int32             `json:"restarts"`
-	Age         time.Duration     `json:"age"`
-	CreatedAt   time.Time         `json:"created_at"`
-	Labels      map[string]string `json:"labels"`
-	NodeName    string            `json:"node_name"`
-	PodIP       string            `json:"pod_ip"`
-	Events      []PodEvent        `json:"events,omitempty"`
+	Age         string            `json:"age"`
+	CreatedAt   time.Time         `json:"createdAt"`
+	Node        string            `json:"node,omitempty"`
+	IP          string            `json:"ip,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 	Containers  []ContainerStatus `json:"containers"`
-	Conditions  []PodCondition    `json:"conditions"`
+	Conditions  []PodCondition    `json:"conditions,omitempty"`
+	OwnerKind   string            `json:"ownerKind,omitempty"`
+	OwnerName   string            `json:"ownerName,omitempty"`
+	Application string            `json:"application,omitempty"`
 }
 
 // ContainerStatus represents the status of a container within a pod
 type ContainerStatus struct {
 	Name         string `json:"name"`
-	Image        string `json:"image"`
 	Ready        bool   `json:"ready"`
-	RestartCount int32  `json:"restart_count"`
+	RestartCount int32  `json:"restartCount"`
+	Image        string `json:"image"`
 	State        string `json:"state"`
-	Reason       string `json:"reason,omitempty"`
-	Message      string `json:"message,omitempty"`
+	LastRestart  string `json:"lastRestart,omitempty"`
 }
 
 // PodCondition represents a pod condition
 type PodCondition struct {
-	Type    string    `json:"type"`
-	Status  string    `json:"status"`
-	Reason  string    `json:"reason,omitempty"`
-	Message string    `json:"message,omitempty"`
-	LastTransitionTime time.Time `json:"last_transition_time"`
+	Type               string    `json:"type"`
+	Status             string    `json:"status"`
+	LastTransitionTime time.Time `json:"lastTransitionTime"`
+	Reason             string    `json:"reason,omitempty"`
+	Message            string    `json:"message,omitempty"`
 }
 
-// PodEvent represents a Kubernetes event related to a pod
-type PodEvent struct {
-	Type      string    `json:"type"`
-	Reason    string    `json:"reason"`
-	Message   string    `json:"message"`
-	Timestamp time.Time `json:"timestamp"`
-	Source    string    `json:"source"`
+// PodListResponse represents the response for pod list endpoints
+type PodListResponse struct {
+	Pods      []PodStatus `json:"pods"`
+	Total     int         `json:"total"`
+	Namespace string      `json:"namespace,omitempty"`
+	Summary   PodSummary  `json:"summary"`
 }
 
-// WebSocketMessage represents a message sent over WebSocket
-type WebSocketMessage struct {
-	Type      string      `json:"type"`
-	Namespace string      `json:"namespace"`
-	Data      interface{} `json:"data"`
-	Timestamp time.Time   `json:"timestamp"`
+// PodSummary provides aggregated statistics about pods
+type PodSummary struct {
+	Running   int `json:"running"`
+	Pending   int `json:"pending"`
+	Succeeded int `json:"succeeded"`
+	Failed    int `json:"failed"`
+	Unknown   int `json:"unknown"`
 }
 
-// MessageType constants for WebSocket messages
-const (
-	MessageTypePodUpdate   = "pod_update"
-	MessageTypePodDelete   = "pod_delete"
-	MessageTypePodAdd      = "pod_add"
-	MessageTypeError       = "error"
-	MessageTypeHeartbeat   = "heartbeat"
-)
+// NamespaceInfo represents information about a Kubernetes namespace
+type NamespaceInfo struct {
+	Name        string            `json:"name"`
+	Status      string            `json:"status"`
+	Age         string            `json:"age"`
+	CreatedAt   time.Time         `json:"createdAt"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+	PodCount    int               `json:"podCount,omitempty"`
+}
 
-// NewPodStatusFromK8s converts a Kubernetes pod to our PodStatus model
-func NewPodStatusFromK8s(pod *corev1.Pod) *PodStatus {
-	podStatus := &PodStatus{
-		Name:      pod.Name,
-		Namespace: pod.Namespace,
-		Phase:     string(pod.Status.Phase),
-		Labels:    pod.Labels,
-		NodeName:  pod.Spec.NodeName,
-		PodIP:     pod.Status.PodIP,
-		CreatedAt: pod.CreationTimestamp.Time,
-		Age:       time.Since(pod.CreationTimestamp.Time),
+// NamespaceListResponse represents the response for namespace list endpoints
+type NamespaceListResponse struct {
+	Namespaces []NamespaceInfo `json:"namespaces"`
+	Total      int             `json:"total"`
+}
+
+// FromK8sPod converts a Kubernetes Pod object to our PodStatus model
+func FromK8sPod(pod *corev1.Pod) PodStatus {
+	// Calculate age
+	age := time.Since(pod.CreationTimestamp.Time)
+	ageStr := formatDuration(age)
+
+	// Determine ready status
+	ready := false
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady {
+			ready = condition.Status == corev1.ConditionTrue
+			break
+		}
 	}
 
-	// Calculate pod status
-	podStatus.Status = calculatePodStatus(pod)
-	podStatus.Ready = isPodReady(pod)
-
-	// Process containers
+	// Calculate total restarts
 	var totalRestarts int32
+	var containers []ContainerStatus
 	for _, containerStatus := range pod.Status.ContainerStatuses {
 		totalRestarts += containerStatus.RestartCount
-		
-		container := ContainerStatus{
+
+		containerState := "unknown"
+		lastRestart := ""
+
+		if containerStatus.State.Running != nil {
+			containerState = "running"
+		} else if containerStatus.State.Waiting != nil {
+			containerState = "waiting"
+		} else if containerStatus.State.Terminated != nil {
+			containerState = "terminated"
+		}
+
+		if containerStatus.LastTerminationState.Terminated != nil {
+			lastRestart = containerStatus.LastTerminationState.Terminated.FinishedAt.Format(time.RFC3339)
+		}
+
+		containers = append(containers, ContainerStatus{
 			Name:         containerStatus.Name,
-			Image:        containerStatus.Image,
 			Ready:        containerStatus.Ready,
 			RestartCount: containerStatus.RestartCount,
-		}
-
-		// Determine container state
-		if containerStatus.State.Running != nil {
-			container.State = "Running"
-		} else if containerStatus.State.Waiting != nil {
-			container.State = "Waiting"
-			container.Reason = containerStatus.State.Waiting.Reason
-			container.Message = containerStatus.State.Waiting.Message
-		} else if containerStatus.State.Terminated != nil {
-			container.State = "Terminated"
-			container.Reason = containerStatus.State.Terminated.Reason
-			container.Message = containerStatus.State.Terminated.Message
-		}
-
-		podStatus.Containers = append(podStatus.Containers, container)
-	}
-
-	podStatus.Restarts = totalRestarts
-
-	// Process conditions
-	for _, condition := range pod.Status.Conditions {
-		podStatus.Conditions = append(podStatus.Conditions, PodCondition{
-			Type:    string(condition.Type),
-			Status:  string(condition.Status),
-			Reason:  condition.Reason,
-			Message: condition.Message,
-			LastTransitionTime: condition.LastTransitionTime.Time,
+			Image:        containerStatus.Image,
+			State:        containerState,
+			LastRestart:  lastRestart,
 		})
 	}
 
-	return podStatus
-}
-
-// calculatePodStatus determines a developer-friendly status
-func calculatePodStatus(pod *corev1.Pod) string {
-	if pod.DeletionTimestamp != nil {
-		return "Terminating"
-	}
-
-	switch pod.Status.Phase {
-	case corev1.PodPending:
-		// Check if it's a scheduling issue
-		for _, condition := range pod.Status.Conditions {
-			if condition.Type == corev1.PodScheduled && condition.Status == corev1.ConditionFalse {
-				return "Scheduling"
-			}
-		}
-		return "Pending"
-	case corev1.PodRunning:
-		if isPodReady(pod) {
-			return "Running"
-		}
-		return "Starting"
-	case corev1.PodSucceeded:
-		return "Completed"
-	case corev1.PodFailed:
-		return "Failed"
-	default:
-		return "Unknown"
-	}
-}
-
-// isPodReady checks if all containers in the pod are ready
-func isPodReady(pod *corev1.Pod) bool {
+	// Convert conditions
+	var conditions []PodCondition
 	for _, condition := range pod.Status.Conditions {
-		if condition.Type == corev1.PodReady {
-			return condition.Status == corev1.ConditionTrue
+		conditions = append(conditions, PodCondition{
+			Type:               string(condition.Type),
+			Status:             string(condition.Status),
+			LastTransitionTime: condition.LastTransitionTime.Time,
+			Reason:             condition.Reason,
+			Message:            condition.Message,
+		})
+	}
+
+	// Determine owner reference
+	ownerKind := ""
+	ownerName := ""
+	if len(pod.OwnerReferences) > 0 {
+		ownerKind = pod.OwnerReferences[0].Kind
+		ownerName = pod.OwnerReferences[0].Name
+	}
+
+	// Try to determine application name from labels
+	application := getApplicationName(pod.Labels)
+
+	return PodStatus{
+		Name:        pod.Name,
+		Namespace:   pod.Namespace,
+		Status:      string(pod.Status.Phase),
+		Ready:       ready,
+		Restarts:    totalRestarts,
+		Age:         ageStr,
+		CreatedAt:   pod.CreationTimestamp.Time,
+		Node:        pod.Spec.NodeName,
+		IP:          pod.Status.PodIP,
+		Labels:      pod.Labels,
+		Annotations: pod.Annotations,
+		Containers:  containers,
+		Conditions:  conditions,
+		OwnerKind:   ownerKind,
+		OwnerName:   ownerName,
+		Application: application,
+	}
+}
+
+// FromK8sNamespace converts a Kubernetes Namespace object to our NamespaceInfo model
+func FromK8sNamespace(ns *corev1.Namespace) NamespaceInfo {
+	age := time.Since(ns.CreationTimestamp.Time)
+	ageStr := formatDuration(age)
+
+	return NamespaceInfo{
+		Name:        ns.Name,
+		Status:      string(ns.Status.Phase),
+		Age:         ageStr,
+		CreatedAt:   ns.CreationTimestamp.Time,
+		Labels:      ns.Labels,
+		Annotations: ns.Annotations,
+	}
+}
+
+// getApplicationName extracts application name from pod labels using common conventions
+func getApplicationName(labels map[string]string) string {
+	// Try different common label keys for application name
+	applicationKeys := []string{
+		"app.kubernetes.io/name",
+		"app.kubernetes.io/instance",
+		"app",
+		"application",
+		"k8s-app",
+	}
+
+	for _, key := range applicationKeys {
+		if value, exists := labels[key]; exists && value != "" {
+			return value
 		}
 	}
-	return false
+
+	return ""
+}
+
+// formatDuration formats a duration into a human-readable string
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return "< 1m"
+	}
+	if d < time.Hour {
+		return formatDurationInMinutes(d)
+	}
+	if d < 24*time.Hour {
+		return formatDurationInHours(d)
+	}
+	return formatDurationInDays(d)
+}
+
+func formatDurationInMinutes(d time.Duration) string {
+	return fmt.Sprintf("%.0fm", d.Minutes())
+}
+
+func formatDurationInHours(d time.Duration) string {
+	hours := int(d.Hours())
+	minutes := int(d.Minutes()) % 60
+	if minutes == 0 {
+		return fmt.Sprintf("%dh", hours)
+	}
+	return fmt.Sprintf("%dh%dm", hours, minutes)
+}
+
+func formatDurationInDays(d time.Duration) string {
+	days := int(d.Hours()) / 24
+	hours := int(d.Hours()) % 24
+	if hours == 0 {
+		return fmt.Sprintf("%dd", days)
+	}
+	return fmt.Sprintf("%dd%dh", days, hours)
 }
