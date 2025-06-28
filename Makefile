@@ -15,6 +15,21 @@ dev-backend:
 	@echo "Starting backend development server..."
 	cd $(BACKEND_DIR) && air
 
+fmt-backend:
+	@echo "Formatting code..."
+	cd $(BACKEND_DIR) && go fmt ./...
+
+docs:
+	@echo "Installing swag if not present..."
+	@which swag > /dev/null || go install github.com/swaggo/swag/cmd/swag@latest
+	@echo "Generating Swagger documentation..."
+	cd $(BACKEND_DIR) && swag init -g cmd/server/main.go -o docs/ --parseDependency --parseInternal
+	@echo "Documentation generated in docs/ directory"
+	@echo "Available at:"
+	@echo "  - Scalar UI: http://localhost:8080/docs"
+	@echo "  - Redoc UI: http://localhost:8080/redoc"
+	@echo "  - Swagger JSON: http://localhost:8080/docs/swagger.json"
+
 # Build - compile both parts
 build: build-frontend build-backend
 
@@ -69,8 +84,9 @@ help:
 	@echo "  dev     - Start development servers"
 	@echo "  build   - Build both frontend and backend"
 	@echo "  test    - Run all tests"
+	@echo "  docs    - Generate API documentation"
 	@echo "  install - Install dependencies"
 	@echo "  clean   - Clean build artifacts"
 
 # Declare phony targets
-.PHONY: dev dev-frontend dev-backend build build-frontend build-backend test test-backend test-frontend install clean help
+.PHONY: dev dev-frontend dev-backend fmt-backend docs build build-frontend build-backend test test-backend test-frontend install clean help

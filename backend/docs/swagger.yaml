@@ -1,0 +1,586 @@
+basePath: /
+definitions:
+  k8s-monitor_internal_models.APIError:
+    properties:
+      code:
+        type: string
+      details:
+        type: string
+      message:
+        type: string
+    type: object
+  k8s-monitor_internal_models.APIResponse:
+    properties:
+      data: {}
+      error:
+        $ref: '#/definitions/k8s-monitor_internal_models.APIError'
+      meta:
+        $ref: '#/definitions/k8s-monitor_internal_models.Meta'
+      success:
+        type: boolean
+      timestamp:
+        type: string
+    type: object
+  k8s-monitor_internal_models.Application:
+    properties:
+      annotations:
+        additionalProperties:
+          type: string
+        type: object
+      createdAt:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      namespace:
+        type: string
+      pods:
+        items:
+          $ref: '#/definitions/k8s-monitor_internal_models.PodStatus'
+        type: array
+      services:
+        items:
+          $ref: '#/definitions/k8s-monitor_internal_models.ServiceInfo'
+        type: array
+      status:
+        description: healthy, degraded, unhealthy, unknown
+        type: string
+      summary:
+        $ref: '#/definitions/k8s-monitor_internal_models.ApplicationSummary'
+      type:
+        description: deployment, statefulset, daemonset, standalone
+        type: string
+      updatedAt:
+        type: string
+      version:
+        type: string
+    type: object
+  k8s-monitor_internal_models.ApplicationSummary:
+    properties:
+      failedPods:
+        type: integer
+      pendingPods:
+        type: integer
+      readyPods:
+        type: integer
+      restartCount:
+        type: integer
+      runningPods:
+        type: integer
+      totalPods:
+        type: integer
+    type: object
+  k8s-monitor_internal_models.ApplicationsResponse:
+    properties:
+      applications:
+        items:
+          $ref: '#/definitions/k8s-monitor_internal_models.Application'
+        type: array
+      namespace:
+        type: string
+      summary:
+        $ref: '#/definitions/k8s-monitor_internal_models.ApplicationsSummary'
+      total:
+        type: integer
+    type: object
+  k8s-monitor_internal_models.ApplicationsSummary:
+    properties:
+      degraded:
+        type: integer
+      healthy:
+        type: integer
+      readyPods:
+        type: integer
+      runningPods:
+        type: integer
+      totalPods:
+        type: integer
+      unhealthy:
+        type: integer
+      unknown:
+        type: integer
+    type: object
+  k8s-monitor_internal_models.ContainerStatus:
+    properties:
+      image:
+        type: string
+      lastRestart:
+        type: string
+      name:
+        type: string
+      ready:
+        type: boolean
+      restartCount:
+        type: integer
+      state:
+        type: string
+    type: object
+  k8s-monitor_internal_models.HealthResponse:
+    properties:
+      checks:
+        additionalProperties:
+          type: string
+        type: object
+      kubernetesStatus:
+        type: string
+      status:
+        type: string
+      timestamp:
+        type: string
+      uptime:
+        type: string
+      version:
+        type: string
+    type: object
+  k8s-monitor_internal_models.Meta:
+    properties:
+      namespace:
+        type: string
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+      totalPages:
+        type: integer
+    type: object
+  k8s-monitor_internal_models.NamespaceInfo:
+    properties:
+      age:
+        type: string
+      annotations:
+        additionalProperties:
+          type: string
+        type: object
+      createdAt:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      podCount:
+        type: integer
+      status:
+        type: string
+    type: object
+  k8s-monitor_internal_models.NamespaceListResponse:
+    properties:
+      namespaces:
+        items:
+          $ref: '#/definitions/k8s-monitor_internal_models.NamespaceInfo'
+        type: array
+      total:
+        type: integer
+    type: object
+  k8s-monitor_internal_models.PodCondition:
+    properties:
+      lastTransitionTime:
+        type: string
+      message:
+        type: string
+      reason:
+        type: string
+      status:
+        type: string
+      type:
+        type: string
+    type: object
+  k8s-monitor_internal_models.PodListResponse:
+    properties:
+      namespace:
+        type: string
+      pods:
+        items:
+          $ref: '#/definitions/k8s-monitor_internal_models.PodStatus'
+        type: array
+      summary:
+        $ref: '#/definitions/k8s-monitor_internal_models.PodSummary'
+      total:
+        type: integer
+    type: object
+  k8s-monitor_internal_models.PodStatus:
+    properties:
+      age:
+        type: string
+      annotations:
+        additionalProperties:
+          type: string
+        type: object
+      application:
+        type: string
+      conditions:
+        items:
+          $ref: '#/definitions/k8s-monitor_internal_models.PodCondition'
+        type: array
+      containers:
+        items:
+          $ref: '#/definitions/k8s-monitor_internal_models.ContainerStatus'
+        type: array
+      createdAt:
+        type: string
+      ip:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      namespace:
+        type: string
+      node:
+        type: string
+      ownerKind:
+        type: string
+      ownerName:
+        type: string
+      ready:
+        type: boolean
+      restarts:
+        type: integer
+      status:
+        type: string
+    type: object
+  k8s-monitor_internal_models.PodSummary:
+    properties:
+      failed:
+        type: integer
+      pending:
+        type: integer
+      running:
+        type: integer
+      succeeded:
+        type: integer
+      unknown:
+        type: integer
+    type: object
+  k8s-monitor_internal_models.ServiceInfo:
+    properties:
+      annotations:
+        additionalProperties:
+          type: string
+        type: object
+      clusterIP:
+        type: string
+      externalIP:
+        items:
+          type: string
+        type: array
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      ports:
+        items:
+          $ref: '#/definitions/k8s-monitor_internal_models.ServicePort'
+        type: array
+      type:
+        type: string
+    type: object
+  k8s-monitor_internal_models.ServicePort:
+    properties:
+      name:
+        type: string
+      nodePort:
+        type: integer
+      port:
+        type: integer
+      protocol:
+        type: string
+      targetPort:
+        type: string
+    type: object
+externalDocs:
+  description: OpenAPI
+  url: https://swagger.io/resources/open-api/
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: API for monitoring Kubernetes clusters with application-centric visibility
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: k8s-monitor API
+  version: "1.0"
+paths:
+  /api/v1/applications:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all applications with their health status across
+        all accessible namespaces
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.ApplicationsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+      summary: List all applications
+      tags:
+      - applications
+  /api/v1/applications/{namespace}:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of applications with their health status from a specific
+        namespace
+      parameters:
+      - description: Namespace name
+        in: path
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.ApplicationsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+      summary: List applications by namespace
+      tags:
+      - applications
+  /api/v1/applications/{namespace}/{name}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific application including
+        all its pods and services
+      parameters:
+      - description: Namespace name
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Application name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.Application'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+      summary: Get a specific application
+      tags:
+      - applications
+  /api/v1/applications/{namespace}/{name}/status:
+    get:
+      consumes:
+      - application/json
+      description: Get the current health status of a specific application
+      parameters:
+      - description: Namespace name
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Application name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              name:
+                type: string
+              namespace:
+                type: string
+              status:
+                type: string
+              summary:
+                $ref: '#/definitions/k8s-monitor_internal_models.ApplicationSummary'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+      summary: Get application status
+      tags:
+      - applications
+  /api/v1/namespaces:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all accessible namespaces
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.NamespaceListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+      summary: List namespaces
+      tags:
+      - namespaces
+  /api/v1/pods:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all pods across all accessible namespaces
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.PodListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+      summary: List all pods
+      tags:
+      - pods
+  /api/v1/pods/{namespace}:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of pods from a specific namespace
+      parameters:
+      - description: Namespace name
+        in: path
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.PodListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+      summary: List pods by namespace
+      tags:
+      - pods
+  /api/v1/pods/{namespace}/{name}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific pod
+      parameters:
+      - description: Namespace name
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Pod name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.PodStatus'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+      summary: Get a specific pod
+      tags:
+      - pods
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: Returns the health status of the API server and its dependencies
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.HealthResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/k8s-monitor_internal_models.APIResponse'
+      summary: Health check endpoint
+      tags:
+      - health
+swagger: "2.0"
