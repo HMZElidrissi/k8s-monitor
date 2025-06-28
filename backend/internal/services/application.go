@@ -1,257 +1,384 @@
 package services
 
 import (
+	"context"
 	"fmt"
-	"strings"
+	"sort"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 
 	"k8s-monitor/internal/models"
+	"k8s-monitor/pkg/utils"
 )
 
-// ApplicationService handles application-level operations
+// ApplicationService provides application-centric operations
 type ApplicationService struct {
-	k8sService K8sService
+	k8sService *KubernetesService
 	logger     *logrus.Logger
 }
 
-// NewApplicationService creates a new application service
-func NewApplicationService(k8sService K8sService, logger *logrus.Logger) *ApplicationService {
+// NewApplicationService creates a new application service instance
+func NewApplicationService(k8sService *KubernetesService, logger *logrus.Logger) *ApplicationService {
 	return &ApplicationService{
 		k8sService: k8sService,
 		logger:     logger,
 	}
 }
 
-// GetApplications retrieves all applications across all namespaces
-func (a *ApplicationService) GetApplications() ([]models.Application, error) {
-	namespaces, err := a.k8sService.GetNamespaces()
+// GetApplications retrieves all applications across all accessible namespaces
+func (a *ApplicationService) GetApplications(ctx context.Context) (*models.ApplicationsResponse, error) {
+	logger := utils.WithComponent(a.logger, "application-service")
+	logger.Info("Fetching all applications")
+
+	// Get all pods
+	podList, err := a.k8sService.GetAllPods(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get namespaces: %w", err)
-	}
-
-	var allApplications []models.Application
-	for _, namespace := range namespaces {
-		// Skip system namespaces
-		if a.isSystemNamespace(namespace) {
-			continue
-		}
-
-		apps, err := a.GetApplicationsByNamespace(namespace)
-		if err != nil {
-			a.logger.WithError(err).WithField("namespace", namespace).Warning("Failed to get applications for namespace")
-			continue
-		}
-
-		allApplications = append(allApplications, apps...)
-	}
-
-	return allApplications, nil
-}
-
-// GetApplicationsByNamespace retrieves applications in a specific namespace
-func (a *ApplicationService) GetApplicationsByNamespace(namespace string) ([]models.Application, error) {
-	pods, err := a.k8sService.GetPods(namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get pods for namespace %s: %w", namespace, err)
+		return nil, fmt.Errorf("failed to get pods: %w", err)
 	}
 
 	// Group pods by application
-	appGroups := a.groupPodsByApplication(pods)
-	
+	applicationMap := a.groupPodsByApplication(podList.Items)
+
+	// Convert to application models
 	var applications []models.Application
-	for appName, appPods := range appGroups {
-		app := a.buildApplication(appName, namespace, appPods)
+	summary := models.ApplicationsSummary{}
+
+	for appKey, pods := range applicationMap {
+		if len(pods) == 0 {
+			continue
+		}
+
+		// Check if namespace is allowed
+		if !a.k8sService.IsNamespaceAllowed(pods[0].Namespace) {
+			continue
+		}
+
+		app := a.buildApplicationFromPods(ctx, appKey, pods)
 		applications = append(applications, app)
+
+		// Update summary
+		switch app.Status {
+		case string(models.StatusHealthy):
+			summary.Healthy++
+		case string(models.StatusDegraded):
+			summary.Degraded++
+		case string(models.StatusUnhealthy):
+			summary.Unhealthy++
+		default:
+			summary.Unknown++
+		}
+
+		summary.TotalPods += app.Summary.TotalPods
+		summary.ReadyPods += app.Summary.ReadyPods
+		summary.RunningPods += app.Summary.RunningPods
 	}
 
-	return applications, nil
+	// Sort applications by name
+	sort.Slice(applications, func(i, j int) bool {
+		if applications[i].Namespace != applications[j].Namespace {
+			return applications[i].Namespace < applications[j].Namespace
+		}
+		return applications[i].Name < applications[j].Name
+	})
+
+	response := &models.ApplicationsResponse{
+		Applications: applications,
+		Total:        len(applications),
+		Summary:      summary,
+	}
+
+	logger.WithField("total", len(applications)).Info("Successfully fetched applications")
+	return response, nil
 }
 
-// groupPodsByApplication groups pods by their application label or name pattern
-func (a *ApplicationService) groupPodsByApplication(pods []models.PodStatus) map[string][]models.PodStatus {
-	groups := make(map[string][]models.PodStatus)
+// GetApplicationsByNamespace retrieves applications from a specific namespace
+func (a *ApplicationService) GetApplicationsByNamespace(ctx context.Context, namespace string) (*models.ApplicationsResponse, error) {
+	logger := utils.WithNamespace(a.logger, namespace)
+	logger.Info("Fetching applications by namespace")
+
+	// Check if namespace is allowed
+	if !a.k8sService.IsNamespaceAllowed(namespace) {
+		return nil, fmt.Errorf("access to namespace '%s' not allowed", namespace)
+	}
+
+	// Get pods from the specified namespace
+	podList, err := a.k8sService.GetPods(ctx, namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pods from namespace %s: %w", namespace, err)
+	}
+
+	// Group pods by application
+	applicationMap := a.groupPodsByApplication(podList.Items)
+
+	// Convert to application models
+	var applications []models.Application
+	summary := models.ApplicationsSummary{}
+
+	for appKey, pods := range applicationMap {
+		if len(pods) == 0 {
+			continue
+		}
+
+		app := a.buildApplicationFromPods(ctx, appKey, pods)
+		applications = append(applications, app)
+
+		// Update summary
+		switch app.Status {
+		case string(models.StatusHealthy):
+			summary.Healthy++
+		case string(models.StatusDegraded):
+			summary.Degraded++
+		case string(models.StatusUnhealthy):
+			summary.Unhealthy++
+		default:
+			summary.Unknown++
+		}
+
+		summary.TotalPods += app.Summary.TotalPods
+		summary.ReadyPods += app.Summary.ReadyPods
+		summary.RunningPods += app.Summary.RunningPods
+	}
+
+	// Sort applications by name
+	sort.Slice(applications, func(i, j int) bool {
+		return applications[i].Name < applications[j].Name
+	})
+
+	response := &models.ApplicationsResponse{
+		Applications: applications,
+		Total:        len(applications),
+		Namespace:    namespace,
+		Summary:      summary,
+	}
+
+	logger.WithField("total", len(applications)).Info("Successfully fetched applications by namespace")
+	return response, nil
+}
+
+// applicationKey represents a unique identifier for an application
+type applicationKey struct {
+	namespace string
+	name      string
+}
+
+// groupPodsByApplication groups pods by their application identity
+func (a *ApplicationService) groupPodsByApplication(pods []corev1.Pod) map[applicationKey][]corev1.Pod {
+	applicationMap := make(map[applicationKey][]corev1.Pod)
 
 	for _, pod := range pods {
-		appName := a.determineApplicationName(pod)
-		groups[appName] = append(groups[appName], pod)
+		appName := a.extractApplicationName(pod)
+		key := applicationKey{
+			namespace: pod.Namespace,
+			name:      appName,
+		}
+
+		applicationMap[key] = append(applicationMap[key], pod)
 	}
 
-	return groups
+	return applicationMap
 }
 
-// determineApplicationName extracts application name from pod labels or name
-func (a *ApplicationService) determineApplicationName(pod models.PodStatus) string {
-	// Try common application labels
-	if appLabel, exists := pod.Labels["app"]; exists {
-		return appLabel
-	}
-	
-	if appLabel, exists := pod.Labels["app.kubernetes.io/name"]; exists {
-		return appLabel
-	}
-
-	if appLabel, exists := pod.Labels["k8s-app"]; exists {
-		return appLabel
+// extractApplicationName extracts the application name from a pod using various strategies
+func (a *ApplicationService) extractApplicationName(pod corev1.Pod) string {
+	// Strategy 1: Check standard application labels
+	applicationKeys := []string{
+		"app.kubernetes.io/name",
+		"app.kubernetes.io/instance",
+		"app",
+		"application",
+		"k8s-app",
 	}
 
-	// Fall back to extracting from pod name (remove replica set suffix)
-	name := pod.Name
-	
-	// Remove replica set suffix pattern (e.g., -7d4c8f9b8-x2k9m)
-	if idx := strings.LastIndex(name, "-"); idx > 0 {
-		beforeDash := name[:idx]
-		if idx2 := strings.LastIndex(beforeDash, "-"); idx2 > 0 {
-			// Check if it looks like a replica set hash
-			suffix := beforeDash[idx2+1:]
-			if len(suffix) >= 8 && a.isAlphaNumeric(suffix) {
-				return beforeDash[:idx2]
+	for _, key := range applicationKeys {
+		if value, exists := pod.Labels[key]; exists && value != "" {
+			return value
+		}
+	}
+
+	// Strategy 2: Extract from owner reference
+	if len(pod.OwnerReferences) > 0 {
+		ownerName := pod.OwnerReferences[0].Name
+
+		// For ReplicaSet, try to get the Deployment name
+		if pod.OwnerReferences[0].Kind == "ReplicaSet" {
+			// ReplicaSet names typically follow the pattern: deploymentname-randomstring
+			if idx := findLastDash(ownerName); idx > 0 {
+				return ownerName[:idx]
 			}
 		}
+
+		return ownerName
 	}
 
-	return name
+	// Strategy 3: Use pod name prefix (before first dash)
+	if idx := findFirstDash(pod.Name); idx > 0 {
+		return pod.Name[:idx]
+	}
+
+	// Fallback: Use the full pod name
+	return pod.Name
 }
 
-// buildApplication creates an Application model from grouped pods
-func (a *ApplicationService) buildApplication(name, namespace string, pods []models.PodStatus) models.Application {
-	app := models.Application{
-		Name:        name,
-		Namespace:   namespace,
+// buildApplicationFromPods creates an Application model from grouped pods
+func (a *ApplicationService) buildApplicationFromPods(ctx context.Context, key applicationKey, k8sPods []corev1.Pod) models.Application {
+	// Convert k8s pods to our pod models
+	var pods []models.PodStatus
+	var oldestCreation time.Time
+	var newestUpdate time.Time
+	var labels map[string]string
+	var annotations map[string]string
+
+	for i, k8sPod := range k8sPods {
+		podStatus := models.FromK8sPod(&k8sPod)
+		pods = append(pods, podStatus)
+
+		// Track creation and update times
+		if i == 0 || k8sPod.CreationTimestamp.Time.Before(oldestCreation) {
+			oldestCreation = k8sPod.CreationTimestamp.Time
+		}
+
+		if k8sPod.Status.StartTime != nil {
+			if i == 0 || k8sPod.Status.StartTime.Time.After(newestUpdate) {
+				newestUpdate = k8sPod.Status.StartTime.Time
+			}
+		}
+
+		// Use labels and annotations from the first pod as representative
+		if i == 0 {
+			labels = k8sPod.Labels
+			annotations = k8sPod.Annotations
+		}
+	}
+
+	// Determine application type
+	appType := string(models.DetermineApplicationType(pods))
+
+	// Calculate application status
+	status := string(models.DetermineApplicationStatus(pods))
+
+	// Calculate summary
+	summary := models.CalculateApplicationSummary(pods)
+
+	// Get version information
+	version := models.GetApplicationVersion(labels, annotations)
+
+	// Get services for this application (optional, can be implemented later)
+	services := a.getApplicationServices(ctx, key.namespace, key.name)
+
+	return models.Application{
+		Name:        key.name,
+		Namespace:   key.namespace,
+		Status:      status,
+		Type:        appType,
+		Version:     version,
+		Labels:      labels,
+		Annotations: annotations,
 		Pods:        pods,
-		LastUpdated: time.Now(),
+		Services:    services,
+		Summary:     summary,
+		CreatedAt:   oldestCreation,
+		UpdatedAt:   newestUpdate,
 	}
-
-	// Calculate replicas
-	app.AvailableReplicas = int32(len(pods))
-	app.ExpectedReplicas = a.calculateExpectedReplicas(pods)
-
-	// Calculate overall status
-	app.Status = models.CalculateApplicationStatus(pods, app.ExpectedReplicas)
-
-	// Extract labels from first pod (assuming consistent labeling)
-	if len(pods) > 0 {
-		app.Labels = pods[0].Labels
-	}
-
-	// Determine business context
-	app.BusinessContext = a.determineBusinessContext(namespace, name, app.Labels)
-
-	return app
 }
 
-// calculateExpectedReplicas estimates expected replicas based on current pods
-func (a *ApplicationService) calculateExpectedReplicas(pods []models.PodStatus) int32 {
-	// This is a simplified approach - in a real implementation,
-	// we would query the deployment/replicaset to get the actual desired count
-	
-	runningOrStarting := int32(0)
-	for _, pod := range pods {
-		if pod.Status == "Running" || pod.Status == "Starting" || pod.Status == "Pending" {
-			runningOrStarting++
+// getApplicationServices retrieves services associated with an application
+func (a *ApplicationService) getApplicationServices(ctx context.Context, namespace, appName string) []models.ServiceInfo {
+	// Get services in the namespace
+	serviceList, err := a.k8sService.GetServices(ctx, namespace)
+	if err != nil {
+		// Log error but don't fail the whole operation
+		utils.WithApplication(a.logger, namespace, appName).
+			WithError(err).Warn("Failed to get services for application")
+		return nil
+	}
+
+	var services []models.ServiceInfo
+	for _, svc := range serviceList.Items {
+		// Check if service is related to this application
+		if a.isServiceRelatedToApplication(svc, appName) {
+			serviceInfo := a.convertServiceToModel(svc)
+			services = append(services, serviceInfo)
 		}
 	}
 
-	// Return at least 1, and assume current running count is expected
-	if runningOrStarting == 0 {
-		return 1
-	}
-	
-	return runningOrStarting
+	return services
 }
 
-// determineBusinessContext infers business context from labels and namespace
-func (a *ApplicationService) determineBusinessContext(namespace, appName string, labels map[string]string) models.BusinessContext {
-	context := models.BusinessContext{
-		Environment: a.determineEnvironment(namespace),
-		Team:        a.determineTeam(labels),
-		Priority:    "medium", // Default priority
+// isServiceRelatedToApplication checks if a service is related to an application
+func (a *ApplicationService) isServiceRelatedToApplication(service corev1.Service, appName string) bool {
+	// Check if service has labels that match the application
+	applicationKeys := []string{
+		"app.kubernetes.io/name",
+		"app.kubernetes.io/instance",
+		"app",
+		"application",
+		"k8s-app",
 	}
 
-	// Check if it's a demo environment
-	context.IsDemo = strings.Contains(namespace, "demo") || 
-					strings.Contains(appName, "demo") ||
-					a.hasLabel(labels, "demo", "true")
-
-	// Check if it's client-facing
-	context.ClientFacing = a.hasLabel(labels, "client-facing", "true") ||
-						  a.hasLabel(labels, "public", "true") ||
-						  strings.Contains(appName, "frontend") ||
-						  strings.Contains(appName, "web") ||
-						  strings.Contains(appName, "api")
-
-	// Determine priority based on context
-	if context.ClientFacing {
-		context.Priority = "high"
-	} else if context.IsDemo {
-		context.Priority = "medium"
-	}
-
-	return context
-}
-
-// determineEnvironment extracts environment from namespace
-func (a *ApplicationService) determineEnvironment(namespace string) string {
-	switch {
-	case strings.Contains(namespace, "prod"):
-		return "production"
-	case strings.Contains(namespace, "staging") || strings.Contains(namespace, "stage"):
-		return "staging"
-	case strings.Contains(namespace, "dev"):
-		return "development"
-	case strings.Contains(namespace, "test"):
-		return "testing"
-	case namespace == "default":
-		return "development"
-	default:
-		return "unknown"
-	}
-}
-
-// determineTeam extracts team information from labels
-func (a *ApplicationService) determineTeam(labels map[string]string) string {
-	if team, exists := labels["team"]; exists {
-		return team
-	}
-	if team, exists := labels["owner"]; exists {
-		return team
-	}
-	return "unknown"
-}
-
-// hasLabel checks if a label exists with a specific value
-func (a *ApplicationService) hasLabel(labels map[string]string, key, value string) bool {
-	if val, exists := labels[key]; exists {
-		return val == value
-	}
-	return false
-}
-
-// isAlphaNumeric checks if string contains only alphanumeric characters
-func (a *ApplicationService) isAlphaNumeric(s string) bool {
-	for _, r := range s {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
-			return false
-		}
-	}
-	return true
-}
-
-// isSystemNamespace checks if namespace should be excluded from monitoring
-func (a *ApplicationService) isSystemNamespace(namespace string) bool {
-	systemNamespaces := []string{
-		"kube-system",
-		"kube-public",
-		"kube-node-lease",
-		"kubernetes-dashboard",
-	}
-
-	for _, sysNs := range systemNamespaces {
-		if namespace == sysNs {
+	for _, key := range applicationKeys {
+		if value, exists := service.Labels[key]; exists && value == appName {
 			return true
 		}
 	}
 
-	return false
+	// Check if service name contains the application name
+	return service.Name == appName ||
+		service.Name == appName+"-service" ||
+		service.Name == appName+"-svc"
+}
+
+// convertServiceToModel converts a Kubernetes Service to our ServiceInfo model
+func (a *ApplicationService) convertServiceToModel(svc corev1.Service) models.ServiceInfo {
+	var ports []models.ServicePort
+	for _, port := range svc.Spec.Ports {
+		servicePort := models.ServicePort{
+			Name:       port.Name,
+			Port:       port.Port,
+			TargetPort: port.TargetPort.String(),
+			Protocol:   string(port.Protocol),
+			NodePort:   port.NodePort,
+		}
+		ports = append(ports, servicePort)
+	}
+
+	var externalIPs []string
+	for _, ip := range svc.Status.LoadBalancer.Ingress {
+		if ip.IP != "" {
+			externalIPs = append(externalIPs, ip.IP)
+		}
+		if ip.Hostname != "" {
+			externalIPs = append(externalIPs, ip.Hostname)
+		}
+	}
+
+	return models.ServiceInfo{
+		Name:        svc.Name,
+		Type:        string(svc.Spec.Type),
+		ClusterIP:   svc.Spec.ClusterIP,
+		ExternalIP:  externalIPs,
+		Ports:       ports,
+		Labels:      svc.Labels,
+		Annotations: svc.Annotations,
+	}
+}
+
+// Helper functions
+func findFirstDash(s string) int {
+	for i, r := range s {
+		if r == '-' {
+			return i
+		}
+	}
+	return -1
+}
+
+func findLastDash(s string) int {
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == '-' {
+			return i
+		}
+	}
+	return -1
 }
