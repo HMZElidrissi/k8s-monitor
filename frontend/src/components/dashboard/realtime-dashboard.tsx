@@ -1,12 +1,3 @@
-/*
- * File: components/dashboard/RealtimeDashboard.tsx
- * Application: K8s Monitor - Kubernetes Application Health Monitoring Tool
- * Author: Hamza El IDRISSI
- * Date: June 24, 2025
- * Version: v1.0.0 - Frontend Real-time Dashboard
- * Description: Real-time dashboard with WebSocket integration
- */
-
 import { useState, useEffect } from 'react';
 import {
   Card,
@@ -17,7 +8,12 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useApplications, usePods } from '@/services/api';
+import {
+  type ApplicationsResponse,
+  type PodListResponse,
+  podsApi,
+  type PodStatus,
+} from '@/services/podApi';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { ApplicationCard } from '@/components/applications/application-card';
 import { PodStatusCard } from '@/components/pods/pod-status-card';
@@ -27,6 +23,8 @@ import {
   IconCheck,
   IconAlertTriangle,
 } from '@tabler/icons-react';
+import { useQuery } from '@tanstack/react-query';
+import type { Application as ApiApplication } from '@/services/podApi';
 
 interface RealtimeDashboardProps {
   namespace?: string;
@@ -39,10 +37,22 @@ export function RealtimeDashboard({
     'connected' | 'disconnected' | 'connecting'
   >('connecting');
 
-  // API queries
   const { data: applicationsData, isLoading: applicationsLoading } =
-    useApplications();
-  const { data: podsData, isLoading: podsLoading } = usePods(namespace);
+    useQuery<ApplicationsResponse>({
+      queryKey: ['applications', namespace],
+      queryFn: () => podsApi.getApplications(namespace),
+      staleTime: 30 * 1000,
+      refetchInterval: 30 * 1000,
+      refetchOnWindowFocus: false,
+    });
+
+  const { data: podsData, isLoading: podsLoading } = useQuery<PodListResponse>({
+    queryKey: ['pods', namespace],
+    queryFn: () => podsApi.getAllPods({ namespace }),
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   // WebSocket connection for real-time updates
   const { isConnected } = useWebSocket({
@@ -58,16 +68,21 @@ export function RealtimeDashboard({
     setConnectionStatus(isConnected ? 'connected' : 'disconnected');
   }, [isConnected]);
 
-  const applications = applicationsData?.applications || [];
-  const pods = podsData?.pods || [];
-//   const summary = applicationsData?.summary;
+  const applications: ApiApplication[] = applicationsData?.applications || [];
+  const pods: PodStatus[] = podsData?.pods ?? [];
+  //   const summary = applicationsData?.summary;
 
   // Calculate dashboard metrics
   const healthyApps = applications.filter(
     (app) => app.status === 'healthy'
   ).length;
-  const runningPods = pods.filter((pod) => pod.status === 'Running').length;
-  const totalRestarts = pods.reduce((sum, pod) => sum + pod.restarts, 0);
+  const runningPods = pods.filter(
+    (pod: PodStatus) => pod.status === 'Running'
+  ).length;
+  const totalRestarts = pods.reduce<number>(
+    (sum: number, pod: PodStatus) => sum + pod.restarts,
+    0
+  );
   const criticalIssues = applications.filter(
     (app) => app.status === 'unhealthy'
   ).length;
@@ -219,7 +234,7 @@ export function RealtimeDashboard({
                 </div>
               ) : pods.length > 0 ? (
                 <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-                  {pods.map((pod) => (
+                  {pods.map((pod: PodStatus) => (
                     <PodStatusCard
                       key={`${pod.namespace}-${pod.name}`}
                       pod={pod}

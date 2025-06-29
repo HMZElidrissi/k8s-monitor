@@ -1,19 +1,22 @@
-/*
- * File: components/dashboard/overview.tsx
- * Application: K8s Monitor - Kubernetes Application Health Monitoring Tool
- * Author: Hamza El IDRISSI
- * Date: June 24, 2025
- * Version: v1.0.0 - Frontend Overview Chart Component
- * Description: Real-time pod metrics chart with live data
- */
-
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
-import { usePods, useApplications } from '@/services/api';
+import { podsApi, type PodListResponse } from '@/services/podApi';
 import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 export function Overview() {
-  const { data: podsData } = usePods('default');
-  const { data: applicationsData } = useApplications();
+  // Fetch pods for the default namespace using React Query
+  const { data: podsData } = useQuery<PodListResponse>({
+    queryKey: ['pods', 'default'],
+    queryFn: () => podsApi.getAllPods({ namespace: 'default' }),
+    staleTime: 15 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  const { data: applicationsData } = useQuery({
+    queryKey: ['applications'],
+    queryFn: () => podsApi.getApplications(),
+    staleTime: 15000,
+    refetchOnWindowFocus: false,
+  });
 
   const pods = useMemo(
     () => podsData?.pods ?? [],

@@ -1,25 +1,25 @@
-/*
- * File: components/dashboard/recent-events.tsx
- * Application: K8s Monitor - Kubernetes Application Health Monitoring Tool
- * Author: Hamza El IDRISSI
- * Date: June 24, 2025
- * Version: v1.0.0 - Frontend Recent Events Component
- * Description: Real-time events component with live pod status updates
- */
-
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { usePods } from '@/services/api';
 import { formatDistanceToNow } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
+import { podsApi } from '@/services/podApi';
+import type { PodListResponse, PodStatus } from '@/services/podApi';
 
 export function RecentEvents() {
-  const { data: podsData, isLoading } = usePods('default');
-  const pods = podsData?.pods || [];
+  const { data: podsData, isLoading } = useQuery<PodListResponse>({
+    queryKey: ['pods', 'all'],
+    queryFn: () => podsApi.getAllPods(),
+    // Consider the data fresh for 30s; adjust based on UX needs
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
+  });
+
+  const pods: PodStatus[] = podsData?.pods ?? [];
 
   // Sort pods by creation time (most recent first) and take first 5
   const recentPods = pods
     .sort(
       (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
     .slice(0, 5);
 
@@ -93,7 +93,7 @@ export function RecentEvents() {
               <p className='text-sm leading-none font-medium'>{pod.name}</p>
               <p className='text-muted-foreground text-sm'>
                 {pod.namespace} •{' '}
-                {formatDistanceToNow(new Date(pod.created_at), {
+                {formatDistanceToNow(new Date(pod.createdAt), {
                   addSuffix: true,
                 })}
               </p>
