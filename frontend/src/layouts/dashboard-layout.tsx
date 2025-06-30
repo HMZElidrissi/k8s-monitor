@@ -6,7 +6,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import SkipToMain from '@/components/layout/skip-to-main';
 import { Header } from '@/components/layout/header';
-import { TopNav } from '@/components/layout/top-nav';
+// import { TopNav } from '@/components/layout/top-nav';
 import { Search } from '@/components/dashboard/search';
 import { ThemeSwitch } from '@/components/dashboard/theme-switch';
 import { ProfileDropdown } from '@/components/layout/profile-dropdown';
@@ -36,7 +36,7 @@ export default function DashboardLayout({ children }: Props) {
           )}
         >
           <Header>
-            <TopNav links={topNav} />
+            {/* <TopNav links={topNav} /> */}
             <div className='ml-auto flex items-center space-x-4'>
               <Search />
               <ThemeSwitch />
@@ -50,30 +50,3 @@ export default function DashboardLayout({ children }: Props) {
     </SearchProvider>
   );
 }
-
-const topNav = [
-  {
-    title: 'Overview',
-    href: '/',
-    isActive: true,
-    disabled: false,
-  },
-  {
-    title: 'Applications',
-    href: '/applications',
-    isActive: false,
-    disabled: false,
-  },
-  {
-    title: 'Pods',
-    href: '/pods',
-    isActive: false,
-    disabled: false,
-  },
-  {
-    title: 'Alerts',
-    href: '/alerts',
-    isActive: false,
-    disabled: false,
-  },
-];

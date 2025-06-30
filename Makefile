@@ -19,6 +19,10 @@ fmt-backend:
 	@echo "Formatting code..."
 	cd $(BACKEND_DIR) && go fmt ./...
 
+fmt-frontend:
+	@echo "Formatting code..."
+	cd $(FRONTEND_DIR) && pnpm format
+
 docs:
 	@echo "Installing swag if not present..."
 	@which swag > /dev/null || go install github.com/swaggo/swag/cmd/swag@latest
@@ -89,4 +93,4 @@ help:
 	@echo "  clean   - Clean build artifacts"
 
 # Declare phony targets
-.PHONY: dev dev-frontend dev-backend fmt-backend docs build build-frontend build-backend test test-backend test-frontend install clean help
+.PHONY: dev dev-frontend dev-backend fmt-backend fmt-frontend docs build build-frontend build-backend test test-backend test-frontend install clean help
