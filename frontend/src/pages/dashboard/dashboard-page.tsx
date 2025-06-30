@@ -11,19 +11,42 @@ import {
 import { Overview } from '@/components/dashboard/overview';
 import { RecentEvents } from '@/components/dashboard/recent-events';
 import { RealtimeDashboard } from '@/components/dashboard/realtime-dashboard';
-import { useApplications, usePods, useHealth } from '@/services/api';
 import { Badge } from '@/components/ui/badge';
 import { IconDownload, IconActivity } from '@tabler/icons-react';
+import { useQuery } from '@tanstack/react-query';
+import { podsApi } from '@/services/podApi';
+import type {
+  PodListResponse,
+  PodStatus,
+  ApplicationsResponse,
+  Application as ApiApplication,
+} from '@/services/podApi';
+import { healthApi } from '@/services/healthApi';
 
 export default function DashboardPage() {
-  // Real-time data hooks
-  const { data: healthData } = useHealth();
+  const { data: healthData } = useQuery({
+    queryKey: ['health'],
+    queryFn: () => healthApi.getHealth(),
+    staleTime: 30000, // Data is fresh for 30 seconds
+    refetchOnWindowFocus: false, // Only manual refresh
+  });
   const { data: applicationsData, isLoading: applicationsLoading } =
-    useApplications();
-  const { data: podsData, isLoading: podsLoading } = usePods('default');
+    useQuery<ApplicationsResponse>({
+      queryKey: ['applications', 'all'],
+      queryFn: () => podsApi.getApplications(),
+      staleTime: 30 * 1000,
+      refetchInterval: 30 * 1000,
+      refetchOnWindowFocus: false,
+    });
+  const { data: podsData, isLoading: podsLoading } = useQuery<PodListResponse>({
+    queryKey: ['pods', 'all'],
+    queryFn: () => podsApi.getAllPods(),
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
+  });
 
-  const applications = applicationsData?.applications || [];
-  const pods = podsData?.pods || [];
+  const applications: ApiApplication[] = applicationsData?.applications ?? [];
+  const pods: PodStatus[] = podsData?.pods ?? [];
 
   // Calculate real-time metrics
   const runningPods = pods.filter((pod) => pod.status === 'Running').length;

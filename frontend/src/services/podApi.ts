@@ -1,78 +1,204 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from './api';
-import type { PodStatus } from '@/types';
+import api from './api';
 
-export interface PodsResponse {
+const API_BASE = '/api/v1';
+
+// Types matching backend models
+export interface PodStatus {
+  name: string;
+  namespace: string;
+  status: string;
+  ready: boolean;
+  restarts: number;
+  age: string;
+  createdAt: string;
+  node?: string;
+  ip?: string;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+  containers: ContainerStatus[];
+  conditions?: PodCondition[];
+  ownerKind?: string;
+  ownerName?: string;
+  application?: string;
+}
+
+export interface ContainerStatus {
+  name: string;
+  ready: boolean;
+  restartCount: number;
+  image: string;
+  state: string;
+  lastRestart?: string;
+}
+
+export interface PodCondition {
+  type: string;
+  status: string;
+  lastTransitionTime: string;
+  reason?: string;
+  message?: string;
+}
+
+export interface PodSummary {
+  running: number;
+  pending: number;
+  succeeded: number;
+  failed: number;
+  unknown: number;
+}
+
+export interface PodListResponse {
   pods: PodStatus[];
-  count: number;
+  total: number;
+  namespace?: string;
+  summary: PodSummary;
+}
+
+export interface Application {
+  name: string;
   namespace: string;
+  status: string; // healthy, degraded, unhealthy, unknown
+  type: string;   // deployment, statefulset, daemonset, standalone
+  version?: string;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+  pods: PodStatus[];
+  services?: ServiceInfo[];
+  summary: ApplicationSummary;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface PodResponse {
-  pod: PodStatus;
+export interface ApplicationSummary {
+  totalPods: number;
+  readyPods: number;
+  runningPods: number;
+  pendingPods: number;
+  failedPods: number;
+  restartCount: number;
 }
 
-export interface RestartPodResponse {
-  message: string;
-  pod: string;
-  namespace: string;
+export interface ServiceInfo {
+  name: string;
+  type: string;
+  clusterIP?: string;
+  externalIP?: string[];
+  ports?: ServicePort[];
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
 }
 
-// Pod API methods as constants
-export const podApi = {
-  getPods: async (namespace: string = 'default'): Promise<PodsResponse> => {
-    return apiClient.get<PodsResponse>(`/api/v1/pods?namespace=${namespace}`);
+export interface ServicePort {
+  name?: string;
+  port: number;
+  targetPort?: string;
+  protocol: string;
+  nodePort?: number;
+}
+
+export interface ApplicationsResponse {
+  applications: Application[];
+  total: number;
+  namespace?: string;
+  summary: ApplicationsSummary;
+}
+
+export interface ApplicationsSummary {
+  healthy: number;
+  degraded: number;
+  unhealthy: number;
+  unknown: number;
+  totalPods: number;
+  readyPods: number;
+  runningPods: number;
+}
+
+export interface NamespaceInfo {
+  name: string;
+  status: string;
+  age: string;
+  createdAt: string;
+  labels?: Record<string, string>;
+  annotations?: Record<string, string>;
+  podCount?: number;
+}
+
+export interface NamespaceListResponse {
+  namespaces: NamespaceInfo[];
+  total: number;
+}
+
+export interface APIResponse<T> {
+  success: boolean;
+  data: T;
+  error?: {
+    code: string;
+    message: string;
+    details?: string;
+  };
+  meta?: {
+    total?: number;
+    page?: number;
+    pageSize?: number;
+    totalPages?: number;
+    namespace?: string;
+  };
+  timestamp: string;
+}
+
+export const podsApi = {
+  // Applications
+  async getApplications(namespace?: string): Promise<ApplicationsResponse> {
+    const endpoint = namespace
+        ? `${API_BASE}/applications/${namespace}`
+        : `${API_BASE}/applications`;
+
+    const response = await api.get<APIResponse<ApplicationsResponse>>(endpoint);
+    return response.data.data;
   },
 
-  getPod: async (namespace: string, name: string): Promise<PodResponse> => {
-    return apiClient.get<PodResponse>(`/api/v1/pods/${namespace}/${name}`);
-  },
-
-  restartPod: async (
-    namespace: string,
-    name: string
-  ): Promise<RestartPodResponse> => {
-    return apiClient.delete<RestartPodResponse>(
-      `/api/v1/pods/${namespace}/${name}`
+  async getApplication(namespace: string, name: string): Promise<Application> {
+    const response = await api.get<APIResponse<Application>>(
+        `${API_BASE}/applications/${namespace}/${name}`
     );
+    return response.data.data;
   },
-};
 
-// React Query Hooks
-export const usePods = (namespace: string = 'default') => {
-  return useQuery({
-    queryKey: ['pods', namespace],
-    queryFn: () => podApi.getPods(namespace),
-    staleTime: 10000, // Data is fresh for 10 seconds
-    refetchOnWindowFocus: false, // Only manual refresh
-  });
-};
+  async getApplicationStatus(namespace: string, name: string) {
+    const response = await api.get<APIResponse<any>>(
+        `${API_BASE}/applications/${namespace}/${name}/status`
+    );
+    return response.data.data;
+  },
 
-export const usePod = (namespace: string, name: string) => {
-  return useQuery({
-    queryKey: ['pod', namespace, name],
-    queryFn: () => podApi.getPod(namespace, name),
-    enabled: !!(namespace && name),
-    staleTime: 10000,
-    refetchOnWindowFocus: false,
-  });
-};
+  // Pods
+  async getAllPods(params?: { namespace?: string }): Promise<PodListResponse> {
+    const endpoint = params?.namespace
+        ? `${API_BASE}/pods/${params.namespace}`
+        : `${API_BASE}/pods`;
 
-export const useRestartPod = () => {
-  const queryClient = useQueryClient();
+    const response = await api.get<APIResponse<PodListResponse>>(endpoint);
+    return response.data.data;
+  },
 
-  return useMutation({
-    mutationFn: ({ namespace, name }: { namespace: string; name: string }) =>
-      podApi.restartPod(namespace, name),
-    onSuccess: (data, variables) => {
-      // Invalidate relevant queries to refetch data
-      queryClient.invalidateQueries({
-        queryKey: ['pods', variables.namespace],
-      });
-      queryClient.invalidateQueries({ queryKey: ['applications'] });
-      queryClient.invalidateQueries({
-        queryKey: ['applications', variables.namespace],
-      });
-    },
-  });
+  async getPod(namespace: string, name: string): Promise<PodStatus> {
+    const response = await api.get<APIResponse<PodStatus>>(
+        `${API_BASE}/pods/${namespace}/${name}`
+    );
+    return response.data.data;
+  },
+
+  // Namespaces
+  async getNamespaces(): Promise<NamespaceListResponse> {
+    const response = await api.get<APIResponse<NamespaceListResponse>>(
+        `${API_BASE}/namespaces`
+    );
+    return response.data.data;
+  },
+
+  // Health check
+  async getHealth() {
+    const response = await api.get('/health');
+    return response.data;
+  },
 };

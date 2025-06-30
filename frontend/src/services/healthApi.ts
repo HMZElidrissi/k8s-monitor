@@ -1,5 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from './api';
+import api from './api';
 
 export interface HealthResponse {
   status: string;
@@ -12,16 +11,7 @@ export interface HealthResponse {
 // Health API methods as constants
 export const healthApi = {
   getHealth: async (): Promise<HealthResponse> => {
-    return apiClient.get<HealthResponse>('/health');
+    const response = await api.get<HealthResponse>('/health');
+    return response.data;
   },
-};
-
-// React Query Hooks
-export const useHealth = () => {
-  return useQuery({
-    queryKey: ['health'],
-    queryFn: () => healthApi.getHealth(),
-    staleTime: 30000, // Data is fresh for 30 seconds
-    refetchOnWindowFocus: false, // Only manual refresh
-  });
 };
