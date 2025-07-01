@@ -5,8 +5,6 @@ import type { Incident } from '@/types/status';
 import { IncidentCard } from '@/components/status/incident-card';
 
 export function PastIncidentsSection({ incidents }: { incidents: Incident[] }) {
-  const [showResolved, setShowResolved] = React.useState(false);
-
   const ongoingIncidents = incidents.filter(
     (incident) => incident.status === 'ongoing'
   );
@@ -56,28 +54,16 @@ export function PastIncidentsSection({ incidents }: { incidents: Incident[] }) {
         <div className='space-y-4'>
           <div className='flex items-center justify-between'>
             <h2 className='text-xl font-semibold'>Past Incidents</h2>
-            <button
-              onClick={() => setShowResolved(!showResolved)}
-              className='text-sm text-muted-foreground hover:text-foreground transition-colors'
-            >
-              {showResolved ? 'Hide' : 'Show'} resolved incidents (
-              {resolvedIncidents.length})
-            </button>
+            <span className='text-sm text-muted-foreground'>
+              {resolvedIncidents.length} resolved
+            </span>
           </div>
 
-          {showResolved && (
-            <div className='space-y-3'>
-              {resolvedIncidents.slice(0, 10).map((incident) => (
-                <IncidentCard key={incident.id} incident={incident} />
-              ))}
-              {resolvedIncidents.length > 10 && (
-                <p className='text-sm text-muted-foreground text-center py-4'>
-                  Showing 10 most recent incidents.{' '}
-                  {resolvedIncidents.length - 10} more not shown.
-                </p>
-              )}
-            </div>
-          )}
+          <div className='space-y-3'>
+            {resolvedIncidents.map((incident) => (
+              <IncidentCard key={incident.id} incident={incident} />
+            ))}
+          </div>
         </div>
       )}
     </div>

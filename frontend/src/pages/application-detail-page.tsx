@@ -5,6 +5,7 @@ import { MonitorStatusCard } from '@/components/status/monitor-status-card';
 import { PastIncidentsSection } from '@/components/status/past-incidents-section';
 import type { Monitor, Incident } from '@/types/status';
 import '@/lib/hash';
+import { Separator } from '@/components/ui/separator';
 
 export default function ApplicationDetailPage() {
   const { namespace, name } = useParams<{ namespace: string; name: string }>();
@@ -19,7 +20,7 @@ export default function ApplicationDetailPage() {
 
   if (isLoading) {
     return (
-      <div className='container mx-auto px-4 py-8 max-w-4xl'>
+      <div className='container mx-auto px-4 py-8 max-w-6xl'>
         <div className='animate-pulse space-y-4'>
           <div className='h-8 bg-gray-200 rounded w-1/3'></div>
           <div className='h-64 bg-gray-200 rounded'></div>
@@ -30,7 +31,7 @@ export default function ApplicationDetailPage() {
 
   if (!application) {
     return (
-      <div className='container mx-auto px-4 py-8 max-w-4xl'>
+      <div className='container mx-auto px-4 py-8 max-w-6xl'>
         <div className='text-center'>
           <h1 className='text-2xl font-bold'>Application not found</h1>
           <p className='text-muted-foreground'>
@@ -61,7 +62,7 @@ export default function ApplicationDetailPage() {
 
   return (
     <div className='min-h-screen bg-background'>
-      <div className='container mx-auto px-4 py-8 max-w-4xl'>
+      <div className='container mx-auto px-4 py-8'>
         {/* Header */}
         <div className='text-center space-y-4 mb-8'>
           <div className='space-y-2'>
@@ -100,16 +101,25 @@ export default function ApplicationDetailPage() {
           </div>
         </div>
 
-        {/* Monitor Status */}
-        <section className='space-y-6 mb-8'>
-          <h2 className='text-2xl font-semibold'>Service Status</h2>
-          <MonitorStatusCard monitor={monitor} />
-        </section>
+        {/* Uptime & Incidents side-by-side */}
+        <div className='grid grid-cols-1 xl:grid-cols-2 gap-12 mb-8 relative'>
+          {/* Monitor Status */}
+          <section className='space-y-6 mr-8'>
+            <h2 className='text-2xl font-semibold'>Service Status</h2>
+            <MonitorStatusCard monitor={monitor} />
+          </section>
 
-        {/* Past Incidents */}
-        <section>
-          <PastIncidentsSection incidents={incidents} />
-        </section>
+          {/* Vertical Separator (hidden on mobile) */}
+          <div className='hidden xl:block absolute left-1/2 top-0 h-full -ml-4'>
+            <Separator orientation='vertical' />
+          </div>
+
+          {/* Past Incidents */}
+          <section>
+            <h2 className='text-2xl font-semibold mb-6'>Incident History</h2>
+            <PastIncidentsSection incidents={incidents} />
+          </section>
+        </div>
       </div>
     </div>
   );

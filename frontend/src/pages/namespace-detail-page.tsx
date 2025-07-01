@@ -5,6 +5,7 @@ import { MonitorStatusCard } from '@/components/status/monitor-status-card';
 import type { Monitor, Incident } from '@/types/status';
 import { PastIncidentsSection } from '@/components/status/past-incidents-section';
 import '@/lib/hash';
+import { Separator } from '@/components/ui/separator';
 
 export default function NamespaceDetailPage() {
   const { namespace } = useParams<{ namespace: string }>();
@@ -19,7 +20,7 @@ export default function NamespaceDetailPage() {
 
   if (isLoading) {
     return (
-      <div className='container mx-auto px-4 py-8 max-w-4xl'>
+      <div className='container mx-auto px-4 py-8 max-w-6xl'>
         <div className='animate-pulse space-y-6'>
           <div className='h-8 bg-gray-200 rounded w-1/3'></div>
           {[...Array(3)].map((_, i) => (
@@ -53,7 +54,7 @@ export default function NamespaceDetailPage() {
 
   return (
     <div className='min-h-screen bg-background'>
-      <div className='container mx-auto px-4 py-8 max-w-4xl'>
+      <div className='container mx-auto px-4 py-8'>
         {/* Header */}
         <div className='text-center space-y-4 mb-8'>
           <div className='space-y-2'>
@@ -83,26 +84,35 @@ export default function NamespaceDetailPage() {
           </div>
         </div>
 
-        {/* Applications Status */}
-        <section className='space-y-6 mb-8'>
-          <h2 className='text-2xl font-semibold'>Applications Status</h2>
-          {monitors.length > 0 ? (
-            monitors.map((monitor) => (
-              <MonitorStatusCard key={monitor.id} monitor={monitor} />
-            ))
-          ) : (
-            <div className='text-center py-12 bg-muted/30 rounded-lg'>
-              <p className='text-muted-foreground'>
-                No applications found in this namespace
-              </p>
-            </div>
-          )}
-        </section>
+        {/* Uptime & Incidents side-by-side */}
+        <div className='grid grid-cols-1 xl:grid-cols-2 gap-12 mb-8 relative'>
+          {/* Applications Status */}
+          <section className='space-y-6 mr-8'>
+            <h2 className='text-2xl font-semibold'>Applications Status</h2>
+            {monitors.length > 0 ? (
+              monitors.map((monitor) => (
+                <MonitorStatusCard key={monitor.id} monitor={monitor} />
+              ))
+            ) : (
+              <div className='text-center py-12 bg-muted/30 rounded-lg'>
+                <p className='text-muted-foreground'>
+                  No applications found in this namespace
+                </p>
+              </div>
+            )}
+          </section>
 
-        {/* Past Incidents */}
-        <section>
-          <PastIncidentsSection incidents={incidents} />
-        </section>
+          {/* Vertical Separator (hidden on mobile) */}
+          <div className='hidden xl:block absolute left-1/2 top-0 h-full -ml-4'>
+            <Separator orientation='vertical' />
+          </div>
+
+          {/* Past Incidents */}
+          <section>
+            <h2 className='text-2xl font-semibold mb-6'>Incident History</h2>
+            <PastIncidentsSection incidents={incidents} />
+          </section>
+        </div>
       </div>
     </div>
   );

@@ -12,11 +12,11 @@ function App() {
         <Route path='/' element={<DashboardLayout />}>
           <Route index element={<StatusPage monitors={sampleMonitors} />} />
           <Route
-            path='application/:namespace/:name'
+            path='applications/:namespace/:name'
             element={<ApplicationDetailPage />}
           />
           <Route
-            path='namespace/:namespace'
+            path='namespaces/:namespace'
             element={<NamespaceDetailPage />}
           />
         </Route>

@@ -566,40 +566,49 @@ export default function StatusPage({
 }: StatusPageProps) {
   return (
     <div className='min-h-screen bg-background'>
-      <div className='container mx-auto px-4 py-8 max-w-4xl'>
+      <div className='container mx-auto px-4 py-8'>
         <StatusHeader title={title} subtitle={subtitle} />
 
-        <main className='space-y-8'>
-          {/* Service Status Section */}
-          <section className='space-y-6'>
-            <h2 className='text-2xl font-semibold'>Service Status</h2>
-            {monitors.map((monitor) => (
-              <MonitorStatusCard key={monitor.id} monitor={monitor} />
-            ))}
+        <main>
+          {/* Uptime & Incidents side-by-side */}
+          <div className='grid grid-cols-1 xl:grid-cols-2 gap-12 relative'>
+            {/* Service Status Section */}
+            <section className='space-y-6'>
+              <h2 className='text-2xl font-semibold'>Service Status</h2>
+              {monitors.map((monitor) => (
+                <MonitorStatusCard key={monitor.id} monitor={monitor} />
+              ))}
 
-            {monitors.length === 0 && (
-              <Card className='text-center py-12'>
-                <CardContent>
-                  <div className='space-y-4'>
-                    <div className='text-4xl'>📊</div>
-                    <div>
-                      <h3 className='text-lg font-semibold'>
-                        No monitors configured
-                      </h3>
-                      <p className='text-muted-foreground'>
-                        Add some monitors to start tracking your services.
-                      </p>
+              {monitors.length === 0 && (
+                <Card className='text-center py-12'>
+                  <CardContent>
+                    <div className='space-y-4'>
+                      <div className='text-4xl'>📊</div>
+                      <div>
+                        <h3 className='text-lg font-semibold'>
+                          No monitors configured
+                        </h3>
+                        <p className='text-muted-foreground'>
+                          Add some monitors to start tracking your services.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </section>
+                  </CardContent>
+                </Card>
+              )}
+            </section>
 
-          {/* Past Incidents Section */}
-          <section>
-            <PastIncidentsSection incidents={incidents} />
-          </section>
+            {/* Vertical Separator (hidden on mobile) */}
+            <div className='hidden xl:block absolute left-1/2 top-0 h-full -ml-6'>
+              <Separator orientation='vertical' />
+            </div>
+
+            {/* Past Incidents Section */}
+            <section>
+              <h2 className='text-2xl font-semibold mb-6'>Incident History</h2>
+              <PastIncidentsSection incidents={incidents} />
+            </section>
+          </div>
         </main>
       </div>
 

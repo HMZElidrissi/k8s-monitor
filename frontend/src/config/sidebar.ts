@@ -72,7 +72,7 @@ export const useSidebarData = () => {
         title: 'Applications',
         items: applications.map((app) => ({
           title: app.name,
-          url: `/application/${app.namespace}/${app.name}`,
+          url: `/applications/${app.namespace}/${app.name}`,
           icon: IconApps,
           badge: `${app.summary.readyPods}/${app.summary.totalPods}`,
           // Use clean status format: "status namespace"
@@ -87,7 +87,7 @@ export const useSidebarData = () => {
         title: 'Namespaces',
         items: namespaces.map((ns) => ({
           title: ns.name,
-          url: `/namespace/${ns.name}`,
+          url: `/namespaces/${ns.name}`,
           icon: IconServer,
           badge: ns.podCount?.toString() || '0',
           description: `${getNamespaceStatus(ns.podCount || 0)} | ${ns.podCount || 0} pods`,
