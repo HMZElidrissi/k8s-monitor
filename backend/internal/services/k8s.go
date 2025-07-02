@@ -8,6 +8,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -18,8 +21,16 @@ import (
 
 // KubernetesService provides access to Kubernetes API
 type KubernetesService struct {
-	clientset *kubernetes.Clientset
-	config    config.KubernetesConfig
+	clientset     *kubernetes.Clientset
+	dynamicClient dynamic.Interface
+	config        config.KubernetesConfig
+}
+
+// ArgoCD Application GVR
+var argoApplicationGVR = schema.GroupVersionResource{
+	Group:    "argoproj.io",
+	Version:  "v1alpha1",
+	Resource: "applications",
 }
 
 // NewKubernetesService creates a new Kubernetes service instance
@@ -57,27 +68,44 @@ func NewKubernetesService(cfg config.KubernetesConfig) (*KubernetesService, erro
 		return nil, fmt.Errorf("failed to create kubernetes clientset: %w", err)
 	}
 
+	dynamicClient, err := dynamic.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
 	service := &KubernetesService{
-		clientset: clientset,
-		config:    cfg,
+		clientset:     clientset,
+		dynamicClient: dynamicClient,
+		config:        cfg,
 	}
 
 	// Test the connection
-	if err := service.HealthCheck(context.Background()); err != nil {
+	if err := service.HealthCheck(); err != nil {
 		return nil, fmt.Errorf("kubernetes connection health check failed: %w", err)
 	}
 
 	return service, nil
 }
 
-// HealthCheck verifies the Kubernetes connection
-func (k *KubernetesService) HealthCheck(ctx context.Context) error {
+// ArgoCD methods
+func (k *KubernetesService) GetArgoApplications(ctx context.Context, namespace string) (*unstructured.UnstructuredList, error) {
+	if namespace == "" {
+		return k.dynamicClient.Resource(argoApplicationGVR).List(ctx, metav1.ListOptions{})
+	}
+	return k.dynamicClient.Resource(argoApplicationGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
+}
+
+func (k *KubernetesService) GetArgoApplication(ctx context.Context, namespace, name string) (*unstructured.Unstructured, error) {
+	return k.dynamicClient.Resource(argoApplicationGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+}
+
+// HealthCheck performs a basic connectivity test to the Kubernetes API server
+func (k *KubernetesService) HealthCheck() error {
 	// Try to get server version
 	_, err := k.clientset.Discovery().ServerVersion()
 	if err != nil {
 		return fmt.Errorf("failed to get server version: %w", err)
 	}
-
 	return nil
 }
 
@@ -86,12 +114,10 @@ func (k *KubernetesService) GetPods(ctx context.Context, namespace string) (*cor
 	if namespace == "" {
 		namespace = "default"
 	}
-
 	pods, err := k.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods in namespace %s: %w", namespace, err)
 	}
-
 	return pods, nil
 }
 
@@ -101,7 +127,6 @@ func (k *KubernetesService) GetAllPods(ctx context.Context) (*corev1.PodList, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to list all pods: %w", err)
 	}
-
 	return pods, nil
 }
 
@@ -111,7 +136,6 @@ func (k *KubernetesService) GetNamespaces(ctx context.Context) (*corev1.Namespac
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces: %w", err)
 	}
-
 	return namespaces, nil
 }
 
@@ -121,7 +145,6 @@ func (k *KubernetesService) GetPod(ctx context.Context, namespace, name string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pod %s in namespace %s: %w", name, namespace, err)
 	}
-
 	return pod, nil
 }
 
@@ -130,12 +153,10 @@ func (k *KubernetesService) GetServices(ctx context.Context, namespace string) (
 	if namespace == "" {
 		namespace = "default"
 	}
-
 	services, err := k.clientset.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list services in namespace %s: %w", namespace, err)
 	}
-
 	return services, nil
 }
 
@@ -166,4 +187,8 @@ func (k *KubernetesService) IsNamespaceAllowed(namespace string) bool {
 // GetClientset returns the underlying Kubernetes clientset
 func (k *KubernetesService) GetClientset() *kubernetes.Clientset {
 	return k.clientset
+}
+
+func (k *KubernetesService) GetDynamicClient() dynamic.Interface {
+	return k.dynamicClient
 }

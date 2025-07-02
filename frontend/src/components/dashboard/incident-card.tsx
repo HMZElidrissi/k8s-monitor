@@ -14,7 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import type { Incident } from '@/types/status';
+import type { Incident } from '@/types';
 import { getIncidentConfig } from '@/lib/status';
 
 export function IncidentCard({ incident }: { incident: Incident }) {

@@ -82,9 +82,10 @@ func main() {
 	podHandler := handlers.NewPodHandler(k8sService, logger)
 	appHandler := handlers.NewApplicationHandler(appService, logger)
 	docsHandler := handlers.NewDocsHandler()
+	argoCDHandler := handlers.NewArgoCDHandler(k8sService, logger)
 
 	// Setup routes
-	setupRoutes(router, healthHandler, podHandler, appHandler, docsHandler)
+	setupRoutes(router, healthHandler, podHandler, appHandler, docsHandler, argoCDHandler)
 
 	// Create HTTP server
 	server := &http.Server{
@@ -128,6 +129,7 @@ func setupRoutes(
 	podHandler *handlers.PodHandler,
 	appHandler *handlers.ApplicationHandler,
 	docsHandler *handlers.DocsHandler,
+	argoCDHandler *handlers.ArgoCDHandler,
 ) {
 	// Health check endpoint
 	router.GET("/health", healthHandler.Check)
@@ -154,5 +156,10 @@ func setupRoutes(
 
 		// Namespace endpoints
 		v1.GET("/namespaces", podHandler.ListNamespaces)
+
+		// ArgoCD endpoints
+		v1.GET("/argocd/applications", argoCDHandler.List)
+		v1.GET("/argocd/applications/:namespace", argoCDHandler.ListByNamespace)
+		v1.GET("/argocd/applications/:namespace/:name", argoCDHandler.GetApplication)
 	}
 }

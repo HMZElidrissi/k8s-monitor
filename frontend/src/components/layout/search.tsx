@@ -1,16 +1,16 @@
-import { IconSearch } from '@tabler/icons-react'
-import { cn } from '@/lib/utils'
-import { useSearch } from '@/contexts/search-context'
-import { Button } from '@/components/ui/button'
+import { IconSearch } from '@tabler/icons-react';
+import { cn } from '@/lib/utils';
+import { useSearch } from '@/contexts/search-context';
+import { Button } from '@/components/ui/button';
 
 interface Props {
-  className?: string
-  type?: React.HTMLInputTypeAttribute
-  placeholder?: string
+  className?: string;
+  type?: React.HTMLInputTypeAttribute;
+  placeholder?: string;
 }
 
 export function Search({ className = '', placeholder = 'Search' }: Props) {
-  const { setOpen } = useSearch()
+  const { setOpen } = useSearch();
   return (
     <Button
       variant='outline'
@@ -29,5 +29,5 @@ export function Search({ className = '', placeholder = 'Search' }: Props) {
         <span className='text-xs'>⌘</span>K
       </kbd>
     </Button>
-  )
+  );
 }

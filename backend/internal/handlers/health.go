@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -43,9 +42,6 @@ func NewHealthHandler(k8sService *services.KubernetesService, logger *logrus.Log
 // @Failure 503 {object} models.APIResponse
 // @Router /health [get]
 func (h *HealthHandler) Check(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
-	defer cancel()
-
 	// Calculate uptime
 	uptime := time.Since(startTime)
 	uptimeStr := formatUptime(uptime)
@@ -61,7 +57,7 @@ func (h *HealthHandler) Check(c *gin.Context) {
 
 	// Perform Kubernetes connectivity check
 	k8sStatus := "healthy"
-	if err := h.k8sService.HealthCheck(ctx); err != nil {
+	if err := h.k8sService.HealthCheck(); err != nil {
 		h.logger.WithError(err).Error("Kubernetes health check failed")
 		k8sStatus = "unhealthy"
 		response.Status = "unhealthy"

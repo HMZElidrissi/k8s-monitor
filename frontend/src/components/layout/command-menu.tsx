@@ -18,13 +18,15 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command';
-import { sidebarData } from '@/config/sidebar-data';
+import { useSidebarData } from '@/config/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { NavGroup, NavItem } from '@/types/navigation';
 
 export function CommandMenu() {
   const navigate = useNavigate();
   const { setTheme } = useTheme();
   const { open, setOpen } = useSearch();
+  const sidebarData = useSidebarData();
 
   const runCommand = useCallback(
     (command: () => unknown) => {
@@ -36,13 +38,13 @@ export function CommandMenu() {
 
   return (
     <CommandDialog modal open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Type a command or search..." />
+      <CommandInput placeholder='Type a command or search...' />
       <CommandList>
-        <ScrollArea type="hover" className="h-72 pr-1">
+        <ScrollArea type='hover' className='h-72 pr-1'>
           <CommandEmpty>No results found.</CommandEmpty>
-          {sidebarData.navGroups.map(group => (
+          {sidebarData.navGroups.map((group: NavGroup) => (
             <CommandGroup key={group.title} heading={group.title}>
-              {group.items.map((navItem, i) => {
+              {group.items.map((navItem: NavItem, i: number) => {
                 if (navItem.url)
                   return (
                     <CommandItem
@@ -52,14 +54,14 @@ export function CommandMenu() {
                         runCommand(() => navigate(navItem.url));
                       }}
                     >
-                      <div className="mr-2 flex h-4 w-4 items-center justify-center">
-                        <IconArrowRightDashed className="text-muted-foreground/80 size-2" />
+                      <div className='mr-2 flex h-4 w-4 items-center justify-center'>
+                        <IconArrowRightDashed className='text-muted-foreground/80 size-2' />
                       </div>
                       {navItem.title}
                     </CommandItem>
                   );
 
-                return navItem.items?.map((subItem, i) => (
+                return navItem.items?.map((subItem, i: number) => (
                   <CommandItem
                     key={`${navItem.title}-${subItem.url}-${i}`}
                     value={`${navItem.title}-${subItem.url}`}
@@ -67,8 +69,8 @@ export function CommandMenu() {
                       runCommand(() => navigate(subItem.url));
                     }}
                   >
-                    <div className="mr-2 flex h-4 w-4 items-center justify-center">
-                      <IconArrowRightDashed className="text-muted-foreground/80 size-2" />
+                    <div className='mr-2 flex h-4 w-4 items-center justify-center'>
+                      <IconArrowRightDashed className='text-muted-foreground/80 size-2' />
                     </div>
                     {navItem.title} <IconChevronRight /> {subItem.title}
                   </CommandItem>
@@ -77,12 +79,12 @@ export function CommandMenu() {
             </CommandGroup>
           ))}
           <CommandSeparator />
-          <CommandGroup heading="Theme">
+          <CommandGroup heading='Theme'>
             <CommandItem onSelect={() => runCommand(() => setTheme('light'))}>
               <IconSun /> <span>Light</span>
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => setTheme('dark'))}>
-              <IconMoon className="scale-90" />
+              <IconMoon className='scale-90' />
               <span>Dark</span>
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => setTheme('system'))}>

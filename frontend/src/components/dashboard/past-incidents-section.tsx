@@ -1,7 +1,6 @@
-import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import type { Incident } from '@/types/status';
+import type { Incident } from '@/types';
 import { IncidentCard } from '@/components/status/incident-card';
 
 export function PastIncidentsSection({ incidents }: { incidents: Incident[] }) {
