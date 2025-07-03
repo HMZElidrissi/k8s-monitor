@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ChevronsUpDown, Plus } from 'lucide-react'
+import { useState } from 'react';
+import { ChevronsUpDown, Plus } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,22 +8,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@/components/ui/dropdown-menu';
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from '@/components/ui/sidebar'
-import type { Team } from '@/types'
+} from '@/components/ui/sidebar';
+import type { Team } from '@/types';
 
-export function TeamSwitcher({
-  teams,
-}: {
-  teams: Team[]
-}) {
-  const { isMobile } = useSidebar()
-  const [activeTeam, setActiveTeam] = useState(teams[0])
+export function TeamSwitcher({ teams }: { teams: Team[] }) {
+  const { isMobile } = useSidebar();
+  const [activeTeam, setActiveTeam] = useState(teams[0]);
 
   return (
     <SidebarMenu>
@@ -79,5 +75,5 @@ export function TeamSwitcher({
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }

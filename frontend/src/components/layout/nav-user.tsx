@@ -17,9 +17,9 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { getInitials } from '@/lib/utils';
-import type { User } from '@/types';
+import type { Common } from '@/types';
 
-export function NavUser({ user }: { user: User }) {
+export function NavUser({ user }: { user: Common }) {
   const { isMobile } = useSidebar();
 
   return (

@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/command';
 import { useSidebarData } from '@/config/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { NavGroup, NavItem } from '@/types/navigation';
+import type { NavGroup, NavItem } from '@/types';
 
 export function CommandMenu() {
   const navigate = useNavigate();

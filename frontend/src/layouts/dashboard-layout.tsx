@@ -7,8 +7,8 @@ import { AppSidebar } from '@/components/layout/app-sidebar';
 import SkipToMain from '@/components/layout/skip-to-main';
 import { Header } from '@/components/layout/header';
 // import { TopNav } from '@/components/layout/top-nav';
-import { Search } from '@/components/dashboard/search';
-import { ThemeSwitch } from '@/components/dashboard/theme-switch';
+import { Search } from '@/components/layout/search';
+import { ThemeSwitch } from '@/components/layout/theme-switch';
 import { ProfileDropdown } from '@/components/layout/profile-dropdown';
 import { Toaster } from 'sonner';
 

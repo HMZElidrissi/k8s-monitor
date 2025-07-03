@@ -1,18 +1,18 @@
-import { useEffect, useRef } from 'react'
-import { useNavigation } from 'react-router-dom'
-import LoadingBar, { type LoadingBarRef } from 'react-top-loading-bar'
+import { useEffect, useRef } from 'react';
+import { useNavigation } from 'react-router-dom';
+import LoadingBar, { type LoadingBarRef } from 'react-top-loading-bar';
 
 export function NavigationProgress() {
-  const ref = useRef<LoadingBarRef>(null)
-  const navigation = useNavigation()
+  const ref = useRef<LoadingBarRef>(null);
+  const navigation = useNavigation();
 
   useEffect(() => {
     if (navigation.state === 'loading') {
-      ref.current?.continuousStart()
+      ref.current?.continuousStart();
     } else {
-      ref.current?.complete()
+      ref.current?.complete();
     }
-  }, [navigation.state])
+  }, [navigation.state]);
 
   return (
     <LoadingBar
@@ -21,5 +21,5 @@ export function NavigationProgress() {
       shadow={true}
       height={2}
     />
-  )
+  );
 }

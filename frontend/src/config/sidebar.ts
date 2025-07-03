@@ -6,12 +6,21 @@ import {
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { podsApi } from '@/services/podApi';
+import { convertArgoCDToApplication } from '@/services/applicationApi';
 import type { StatusType } from '@/components/ui/status-indicator';
+import { applicationsApi } from '@/services/applicationApi.ts';
 
 export const useSidebarData = () => {
   const { data: applicationsData } = useQuery({
     queryKey: ['applications'],
-    queryFn: () => podsApi.getApplications(),
+    queryFn: async () => {
+      const response = await applicationsApi.getArgoCDApplications();
+      return {
+        applications: response.applications.map(convertArgoCDToApplication),
+        total: response.total,
+        summary: response.summary,
+      };
+    },
     staleTime: 60 * 1000,
     refetchInterval: 60 * 1000, // Refresh every minute
   });
@@ -74,7 +83,7 @@ export const useSidebarData = () => {
           title: app.name,
           url: `/applications/${app.namespace}/${app.name}`,
           icon: IconApps,
-          badge: `${app.summary.readyPods}/${app.summary.totalPods}`,
+          badge: `${app.summary?.readyPods || 0}/${app.summary?.totalPods || 0}`,
           // Use clean status format: "status namespace"
           description: `${mapApplicationStatus(app.status)} | ${app.namespace}`,
           metadata: {

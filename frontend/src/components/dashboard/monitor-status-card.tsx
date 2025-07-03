@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { StatusBar } from '@/components/status/status-bar';
+import { StatusBar } from '@/components/dashboard/status-bar';
 import type { Monitor } from '@/types';
 import { getStatusConfig } from '@/lib/status';
 
