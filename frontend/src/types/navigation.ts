@@ -1,5 +1,5 @@
 import type { To } from 'react-router-dom';
-import type { Team, User } from '@/types';
+import type { Team, Common } from '@/types';
 import type { StatusType } from '@/components/ui/status-indicator';
 
 interface BaseNavItem {
@@ -34,7 +34,7 @@ export interface NavGroup {
 }
 
 export interface SidebarData {
-  user: User;
+  user: Common;
   teams: Team[];
   navGroups: NavGroup[];
 }

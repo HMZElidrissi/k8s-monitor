@@ -36,3 +36,12 @@ export interface Incident {
   affectedServices: string[];
   updates: IncidentUpdate[];
 }
+
+export interface HealthResponse {
+  status: string;
+  version: string;
+  uptime: string;
+  kubernetesStatus: string;
+  checks: Record<string, string>;
+  timestamp: string;
+}

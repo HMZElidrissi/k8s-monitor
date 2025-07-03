@@ -1,17 +1,10 @@
 import api from './api';
-
-export interface HealthResponse {
-  status: string;
-  service: string;
-  version: string;
-  timestamp: string;
-  uptime: string;
-}
+import type { HealthResponse } from '@/types';
 
 // Health API methods as constants
 export const healthApi = {
-  getHealth: async (): Promise<HealthResponse> => {
-    const response = await api.get<HealthResponse>('/health');
-    return response.data;
+  async getHealth(): Promise<HealthResponse> {
+    const response = await api.get('/health');
+    return response.data.data || response.data;
   },
 };

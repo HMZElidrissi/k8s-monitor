@@ -1,34 +1,26 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { podsApi } from '@/services/podApi';
-import { MonitorStatusCard } from '@/components/status/monitor-status-card';
-import type { Monitor, Incident } from '@/types/status';
-import { PastIncidentsSection } from '@/components/status/past-incidents-section';
+import { MonitorStatusCard } from '@/components/dashboard/monitor-status-card';
+import type { Incident, Monitor } from '@/types';
+import { PastIncidentsSection } from '@/components/dashboard/past-incidents-section';
 import '@/lib/hash';
 import { Separator } from '@/components/ui/separator';
+import { NamespaceDetailLoadingState } from '@/components/ui/loading-states';
+import { applicationsApi } from '@/services/applicationApi.ts';
 
 export default function NamespaceDetailPage() {
   const { namespace } = useParams<{ namespace: string }>();
 
   const { data: applicationsData, isLoading } = useQuery({
     queryKey: ['applications', namespace],
-    queryFn: () => podsApi.getApplications(namespace!),
+    queryFn: () => applicationsApi.getApplicationsByNamespace(namespace!),
     enabled: !!namespace,
     staleTime: 30 * 1000,
     refetchInterval: 30 * 1000,
   });
 
   if (isLoading) {
-    return (
-      <div className='container mx-auto px-4 py-8 max-w-6xl'>
-        <div className='animate-pulse space-y-6'>
-          <div className='h-8 bg-gray-200 rounded w-1/3'></div>
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className='h-64 bg-gray-200 rounded'></div>
-          ))}
-        </div>
-      </div>
-    );
+    return <NamespaceDetailLoadingState />;
   }
 
   const applications = applicationsData?.applications || [];

@@ -1,35 +1,37 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { podsApi } from '@/services/podApi';
-import { MonitorStatusCard } from '@/components/status/monitor-status-card';
-import { PastIncidentsSection } from '@/components/status/past-incidents-section';
-import type { Monitor, Incident } from '@/types/status';
+import { MonitorStatusCard } from '@/components/dashboard/monitor-status-card';
+import { PastIncidentsSection } from '@/components/dashboard/past-incidents-section';
+import type { Incident, Monitor } from '@/types';
 import '@/lib/hash';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ApplicationDetailLoadingState } from '@/components/ui/loading-states';
+import { ExternalLink, GitBranch, Package, Server } from 'lucide-react';
+import {
+  generateArgoCDIncidents,
+  generateArgoCDUptimeData,
+} from '@/lib/argocd';
+import { applicationsApi } from '@/services/applicationApi.ts';
 
 export default function ApplicationDetailPage() {
   const { namespace, name } = useParams<{ namespace: string; name: string }>();
 
-  const { data: application, isLoading } = useQuery({
-    queryKey: ['application', namespace, name],
-    queryFn: () => podsApi.getApplication(namespace!, name!),
+  // Fetch ArgoCD Application
+  const { data: argoCDApp, isLoading } = useQuery({
+    queryKey: ['argocd-application', namespace, name],
+    queryFn: () => applicationsApi.getArgoCDApplication(namespace!, name!),
     enabled: !!(namespace && name),
     staleTime: 30 * 1000,
     refetchInterval: 30 * 1000,
   });
 
   if (isLoading) {
-    return (
-      <div className='container mx-auto px-4 py-8 max-w-6xl'>
-        <div className='animate-pulse space-y-4'>
-          <div className='h-8 bg-gray-200 rounded w-1/3'></div>
-          <div className='h-64 bg-gray-200 rounded'></div>
-        </div>
-      </div>
-    );
+    return <ApplicationDetailLoadingState />;
   }
 
-  if (!application) {
+  if (!argoCDApp) {
     return (
       <div className='container mx-auto px-4 py-8 max-w-6xl'>
         <div className='text-center'>
@@ -42,23 +44,23 @@ export default function ApplicationDetailPage() {
     );
   }
 
-  // Transform application to monitor
+  // Transform application to monitor for status display
   const monitor: Monitor = {
     id: `${namespace}-${name}`.hashCode(),
-    name: application.name,
-    description: `${application.type} in ${application.namespace} namespace`,
-    url: `k8s://${namespace}/${name}`,
+    name: argoCDApp.name,
+    description: `ArgoCD Application in ${argoCDApp.namespace} namespace`,
+    url: argoCDApp.repoURL,
     periodicity: '1m',
-    regions: [namespace!],
+    regions: [argoCDApp.destNamespace],
     method: 'GET',
     body: '',
     headers: [],
     active: true,
-    data: generateUptimeData(application),
+    data: generateArgoCDUptimeData(argoCDApp),
   };
 
-  // Generate incidents from pod issues
-  const incidents: Incident[] = generateIncidents(application);
+  // Generate incidents from ArgoCD status
+  const incidents: Incident[] = generateArgoCDIncidents(argoCDApp);
 
   return (
     <div className='min-h-screen bg-background'>
@@ -67,39 +69,199 @@ export default function ApplicationDetailPage() {
         <div className='text-center space-y-4 mb-8'>
           <div className='space-y-2'>
             <h1 className='text-4xl font-bold tracking-tight'>
-              {application.name}
+              {argoCDApp.name}
             </h1>
             <p className='text-xl text-muted-foreground'>
-              {application.type} in {application.namespace} namespace
+              ArgoCD Application in {argoCDApp.namespace} namespace
             </p>
           </div>
-          <div className='flex items-center justify-center gap-2'>
-            <div
-              className={`h-2 w-2 rounded-full animate-pulse ${
-                application.status === 'healthy'
-                  ? 'bg-green-500'
-                  : application.status === 'degraded'
-                    ? 'bg-yellow-500'
-                    : 'bg-red-500'
-              }`}
-            />
-            <span
-              className={`text-sm font-medium ${
-                application.status === 'healthy'
-                  ? 'text-green-600'
-                  : application.status === 'degraded'
-                    ? 'text-yellow-600'
-                    : 'text-red-600'
-              }`}
+          <div className='flex items-center justify-center gap-4'>
+            <div className='flex items-center gap-2'>
+              <div
+                className={`h-2 w-2 rounded-full animate-pulse ${
+                  argoCDApp.status === 'healthy'
+                    ? 'bg-green-500'
+                    : argoCDApp.status === 'degraded' ||
+                        argoCDApp.status === 'out-of-sync' ||
+                        argoCDApp.status === 'progressing'
+                      ? 'bg-yellow-500'
+                      : 'bg-red-500'
+                }`}
+              />
+              <span
+                className={`text-sm font-medium ${
+                  argoCDApp.status === 'healthy'
+                    ? 'text-green-600'
+                    : argoCDApp.status === 'degraded' ||
+                        argoCDApp.status === 'out-of-sync' ||
+                        argoCDApp.status === 'progressing'
+                      ? 'text-yellow-600'
+                      : 'text-red-600'
+                }`}
+              >
+                {argoCDApp.status === 'healthy'
+                  ? 'All systems operational'
+                  : argoCDApp.status === 'out-of-sync'
+                    ? 'Application out of sync'
+                    : argoCDApp.status === 'progressing'
+                      ? 'Deployment in progress'
+                      : 'Service issues detected'}
+              </span>
+            </div>
+            <Badge
+              variant={
+                argoCDApp.syncStatus === 'Synced' ? 'default' : 'destructive'
+              }
             >
-              {application.status === 'healthy'
-                ? 'All systems operational'
-                : application.status === 'degraded'
-                  ? 'Some issues detected'
-                  : 'Service disruption'}
-            </span>
+              {argoCDApp.syncStatus}
+            </Badge>
+            <Badge
+              variant={
+                argoCDApp.healthStatus === 'Healthy' ? 'default' : 'secondary'
+              }
+            >
+              {argoCDApp.healthStatus}
+            </Badge>
           </div>
         </div>
+
+        {/* ArgoCD Information Cards */}
+        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8'>
+          <Card>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>Repository</CardTitle>
+              <GitBranch className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div
+                className='text-sm font-mono truncate'
+                title={argoCDApp.repoURL}
+              >
+                {argoCDApp.repoURL
+                  .replace('https://', '')
+                  .replace('http://', '')}
+              </div>
+              <p className='text-xs text-muted-foreground'>
+                {argoCDApp.path || '/'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>
+                Target Revision
+              </CardTitle>
+              <Package className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-sm font-mono'>
+                {argoCDApp.targetRevision || 'HEAD'}
+              </div>
+              <p className='text-xs text-muted-foreground'>Deployment target</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>Destination</CardTitle>
+              <Server className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-sm'>{argoCDApp.destNamespace}</div>
+              <p
+                className='text-xs text-muted-foreground font-mono truncate'
+                title={argoCDApp.server}
+              >
+                {argoCDApp.server
+                  .replace('https://', '')
+                  .replace('http://', '')}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+              <CardTitle className='text-sm font-medium'>Resources</CardTitle>
+              <ExternalLink className='h-4 w-4 text-muted-foreground' />
+            </CardHeader>
+            <CardContent>
+              <div className='text-2xl font-bold'>
+                {argoCDApp.resources.length}
+              </div>
+              <p className='text-xs text-muted-foreground'>
+                {
+                  argoCDApp.resources.filter((r) => r.status === 'Synced')
+                    .length
+                }{' '}
+                synced
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Resources Table */}
+        {argoCDApp.resources.length > 0 && (
+          <div className='mb-8'>
+            <Card>
+              <CardHeader>
+                <CardTitle>Managed Resources</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className='overflow-x-auto'>
+                  <table className='w-full'>
+                    <thead>
+                      <tr className='border-b'>
+                        <th className='text-left p-2'>Kind</th>
+                        <th className='text-left p-2'>Name</th>
+                        <th className='text-left p-2'>Namespace</th>
+                        <th className='text-left p-2'>Sync Status</th>
+                        <th className='text-left p-2'>Health</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {argoCDApp.resources.map((resource, index) => (
+                        <tr key={index} className='border-b'>
+                          <td className='p-2'>
+                            <Badge variant='outline'>{resource.kind}</Badge>
+                          </td>
+                          <td className='p-2 font-mono text-sm'>
+                            {resource.name}
+                          </td>
+                          <td className='p-2 text-sm text-muted-foreground'>
+                            {resource.namespace}
+                          </td>
+                          <td className='p-2'>
+                            <Badge
+                              variant={
+                                resource.status === 'Synced'
+                                  ? 'default'
+                                  : 'destructive'
+                              }
+                            >
+                              {resource.status}
+                            </Badge>
+                          </td>
+                          <td className='p-2'>
+                            <Badge
+                              variant={
+                                resource.health === 'Healthy'
+                                  ? 'default'
+                                  : 'secondary'
+                              }
+                            >
+                              {resource.health}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Uptime & Incidents side-by-side */}
         <div className='grid grid-cols-1 xl:grid-cols-2 gap-12 mb-8 relative'>
@@ -123,162 +285,4 @@ export default function ApplicationDetailPage() {
       </div>
     </div>
   );
-}
-
-function generateUptimeData(application: any) {
-  const createdAt = new Date(application.createdAt);
-  const now = new Date();
-
-  // Calculate actual days since creation (max 90 days for chart)
-  const daysSinceCreation = Math.floor(
-    (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const daysToShow = Math.min(daysSinceCreation + 1, 90); // +1 to include today
-
-  if (daysToShow <= 0) {
-    return [];
-  }
-
-  const uptimeData = [];
-
-  for (let i = 0; i < daysToShow; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - (daysToShow - 1 - i));
-
-    // Only show data for days after creation
-    if (date < createdAt) {
-      continue;
-    }
-
-    // Base uptime on current application health (more realistic)
-    let baseUptime = 0.99; // Default high uptime
-
-    if (application.status === 'healthy') {
-      baseUptime = 0.995;
-    } else if (application.status === 'degraded') {
-      baseUptime = 0.92;
-    } else if (application.status === 'unhealthy') {
-      baseUptime = 0.7;
-    }
-
-    // Factor in restart rate (restarts per day since creation)
-    const restartRate =
-      application.summary.restartCount / Math.max(daysSinceCreation, 1);
-    const restartPenalty = Math.min(restartRate * 0.02, 0.15); // Max 15% penalty
-
-    // Factor in pod readiness ratio
-    const readinessRatio =
-      application.summary.readyPods /
-      Math.max(application.summary.totalPods, 1);
-    const readinessPenalty = (1 - readinessRatio) * 0.1;
-
-    const uptime = Math.max(
-      0.5,
-      baseUptime - restartPenalty - readinessPenalty
-    );
-
-    const totalChecks = 1440; // Every minute
-    const successfulChecks = Math.floor(totalChecks * uptime);
-
-    uptimeData.push({
-      day: date.toISOString().split('T')[0],
-      ok: successfulChecks,
-      count: totalChecks,
-    });
-  }
-
-  return uptimeData;
-}
-
-function generateIncidents(application: any): Incident[] {
-  const incidents: Incident[] = [];
-
-  // Current incident if unhealthy
-  if (application.status === 'unhealthy') {
-    const failedPods = application.pods.filter(
-      (pod: any) => pod.status === 'Failed' || !pod.ready
-    );
-    const latestIssue =
-      failedPods.length > 0 ? new Date(failedPods[0].createdAt) : new Date();
-
-    incidents.push({
-      id: `current-${application.name}`,
-      title: `${application.name} Service Degradation`,
-      description: `Application is experiencing issues with ${application.summary.failedPods} failed pods and ${application.summary.totalPods - application.summary.readyPods} not ready`,
-      status: 'ongoing',
-      severity:
-        application.summary.failedPods > application.summary.totalPods * 0.5
-          ? 'major'
-          : 'minor',
-      startTime: latestIssue.toISOString(),
-      affectedServices: [application.name],
-      updates: [
-        {
-          id: 'update-1',
-          timestamp: latestIssue.toISOString(),
-          status: 'investigating',
-          message: `Investigating service issues. ${application.summary.runningPods}/${application.summary.totalPods} pods running.`,
-        },
-      ],
-    });
-  }
-
-  // Create incidents based on actual pod restart history
-  const highRestartPods = application.pods.filter(
-    (pod: any) => pod.restarts > 3
-  );
-
-  if (highRestartPods.length > 0) {
-    // Get the most recent restart incident
-    const mostRecentPod = highRestartPods.reduce(
-      (latest: any, current: any) => {
-        const latestRestart = latest.containers?.[0]?.lastRestart
-          ? new Date(latest.containers[0].lastRestart)
-          : new Date(latest.createdAt);
-        const currentRestart = current.containers?.[0]?.lastRestart
-          ? new Date(current.containers[0].lastRestart)
-          : new Date(current.createdAt);
-        return currentRestart > latestRestart ? current : latest;
-      }
-    );
-
-    const restartTime = mostRecentPod.containers?.[0]?.lastRestart
-      ? new Date(mostRecentPod.containers[0].lastRestart)
-      : new Date(mostRecentPod.createdAt);
-
-    // Only create incident if restarts happened recently (within last 7 days)
-    const daysSinceRestart =
-      (new Date().getTime() - restartTime.getTime()) / (1000 * 60 * 60 * 24);
-
-    if (daysSinceRestart <= 7) {
-      const resolvedTime = new Date(restartTime.getTime() + 30 * 60 * 1000); // Assume 30 min resolution
-
-      incidents.push({
-        id: `restart-${application.name}-${restartTime.getTime()}`,
-        title: `${application.name} Pod Restarts`,
-        description: `Multiple pods experienced restarts. Pod '${mostRecentPod.name}' restarted ${mostRecentPod.restarts} times.`,
-        status: 'resolved',
-        severity: mostRecentPod.restarts > 10 ? 'major' : 'minor',
-        startTime: restartTime.toISOString(),
-        resolvedTime: resolvedTime.toISOString(),
-        affectedServices: [application.name],
-        updates: [
-          {
-            id: 'update-r1',
-            timestamp: restartTime.toISOString(),
-            status: 'investigating',
-            message: `Pod restart detected for ${mostRecentPod.name}. Investigating root cause.`,
-          },
-          {
-            id: 'update-r2',
-            timestamp: resolvedTime.toISOString(),
-            status: 'resolved',
-            message: `Pod restarts stabilized. Application running normally.`,
-          },
-        ],
-      });
-    }
-  }
-
-  return incidents;
 }
